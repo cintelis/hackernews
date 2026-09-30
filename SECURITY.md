@@ -35,6 +35,9 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOCB3IaMc3Lc4JvPv6rWCVLpTjmvvPrhFFPST0NSsypP
 
 Fingerprint: `SHA256:RY9yd61LBZCa5WrzSkEet+1Dnt2zVu9zpMRbZMWIV+I`
 
+It is also published on our domain, so you can cross-check it through a
+second channel: <https://cintelis.ai/.well-known/cintelis-release.pub>
+
 ```sh
 # 1. the checksums are signed by the release key
 echo 'cintelis-release namespaces="cintelis-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOCB3IaMc3Lc4JvPv6rWCVLpTjmvvPrhFFPST0NSsypP' > allowed_signers

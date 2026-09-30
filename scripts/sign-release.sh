@@ -50,6 +50,8 @@ printf '%s namespaces="%s" %s\n' "$NS" "$NS" "$(cut -d' ' -f1,2 "$pub")" > "$tmp
 ssh-keygen -Y verify -f "$tmp/allowed_signers" -I "$NS" -n "$NS" \
   -s "$tmp/checksums.txt.sig" < "$tmp/checksums.txt"
 
-gh release upload "$tag" "$tmp/checksums.txt.sig" -R "$REPO"
+# --clobber: a rerun after a failed publish replaces the signature it uploaded
+# (the release is still a draft, so it can change; once published it can't)
+gh release upload "$tag" "$tmp/checksums.txt.sig" -R "$REPO" --clobber
 gh release edit "$tag" -R "$REPO" --draft=false --latest
 echo "published $tag"
