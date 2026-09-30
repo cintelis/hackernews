@@ -47,7 +47,7 @@ fi
 printf 'cintelis-release namespaces="cintelis-release" %s\n' "$RELEASE_KEY" > "$tmp/allowed_signers"
 if ! ssh-keygen -Y verify -f "$tmp/allowed_signers" -I cintelis-release -n cintelis-release \
   -s "$tmp/checksums.txt.sig" < "$tmp/checksums.txt" >/dev/null 2>&1; then
-  echo "cintelis: v$version is not signed with the cintelis release key — not installing" >&2
+  echo "cintelis: v$version is not signed with the Cintelis release key — not installing" >&2
   exit 1
 fi
 

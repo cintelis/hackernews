@@ -149,7 +149,7 @@ func install(ctx context.Context, version, exe string) error {
 	// the signature is what makes the checksums trustworthy: they come from
 	// the same place as the archives, and a forged release forges both
 	if err := VerifySSHSig(ReleaseKey, SigNamespace, sums, sig); err != nil {
-		return fmt.Errorf("v%s isn't signed with the cintelis release key (%v) — not installing it", version, err)
+		return fmt.Errorf("v%s isn't signed with the Cintelis release key (%v) — not installing it", version, err)
 	}
 	want, err := ChecksumFor(sums, asset)
 	if err != nil {
