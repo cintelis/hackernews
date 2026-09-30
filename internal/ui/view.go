@@ -100,8 +100,9 @@ func (m *Model) header(t Theme) []string {
 	brand := []seg{{" CISO", t.Brand, true}, {" AI", t.BrandAccent, true}, {"  ·  Hacker News", t.BrandSubtle, false}}
 	var right []seg
 	if d := len(m.s.Stack); d > 0 && m.s.Screen != app.ScreenList {
-		right = append(right, seg{fmt.Sprintf("‹ %d back ", d), t.BrandSubtle, false})
+		right = append(right, seg{fmt.Sprintf("‹ %d back  ", d), t.BrandSubtle, false})
 	}
+	right = append(right, seg{versionLabel(m.version) + " ", t.BrandSubtle, false})
 	first := line(1, t.Strip) + tile + split(w-5, t.Strip, brand, right)
 
 	var second string
@@ -608,4 +609,13 @@ func plural(n int, word string) string {
 		return fmt.Sprintf("%d %sies", n, strings.TrimSuffix(word, "y"))
 	}
 	return fmt.Sprintf("%d %ss", n, word)
+}
+
+// versionLabel is how the header shows the build: "v0.2.0" for a release,
+// anything else (a local build) as it is.
+func versionLabel(v string) string {
+	if v != "" && v[0] >= '0' && v[0] <= '9' {
+		return "v" + v
+	}
+	return v
 }

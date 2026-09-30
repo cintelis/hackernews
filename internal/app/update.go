@@ -277,6 +277,19 @@ func (s *State) detailCommand(c Command) []Effect {
 		return []Effect{OpenURL{URL: url}}
 	case CmdOpenHN:
 		return []Effect{OpenURL{URL: hn.ItemURL(d.Story.ID)}}
+	case CmdReply:
+		// the browser, where the user is logged in: the app never holds HN credentials
+		cur := d.Current()
+		if cur == nil { // no comments yet: the story's page has the comment box
+			s.Flash = "opening the story in your browser to comment"
+			return []Effect{OpenURL{URL: hn.ItemURL(d.Story.ID)}}
+		}
+		if cur.Deleted {
+			s.Flash = "can't reply to a deleted comment"
+			return nil
+		}
+		s.Flash = "opening the reply page in your browser"
+		return []Effect{OpenURL{URL: hn.ReplyURL(d.Story.ID, cur.ID)}}
 	case CmdToggleSave:
 		return s.toggleSave(d.Story.ID)
 	case CmdRefresh:

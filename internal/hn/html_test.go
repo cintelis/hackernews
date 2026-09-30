@@ -80,3 +80,10 @@ func TestParseItemLink(t *testing.T) {
 		}
 	}
 }
+
+func TestReplyURL(t *testing.T) {
+	want := "https://news.ycombinator.com/reply?id=456&goto=item%3Fid%3D123%23456"
+	if got := ReplyURL(123, 456); got != want {
+		t.Errorf("ReplyURL = %q, want %q", got, want)
+	}
+}

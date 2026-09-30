@@ -1,7 +1,8 @@
-# cintelis
+# CISO AI - Hacker News
 
 A fast Hacker News reader for the terminal. One small binary for macOS,
-Linux and Windows, no runtime, no account, no API keys.
+Linux and Windows, no runtime, no account, no API keys. The command is
+`cintelis`.
 
 ## Install
 
@@ -16,6 +17,8 @@ curl -fsSL https://raw.githubusercontent.com/cintelis/hackernews/main/install.sh
 ```powershell
 irm https://raw.githubusercontent.com/cintelis/hackernews/main/install.ps1 | iex
 ```
+
+On Windows it also adds **CISO AI - Hacker News** to the Start menu.
 
 Both scripts install the latest release only if its checksums are signed
 with the cintelis release key and the download matches them. Or, with Go installed:
@@ -61,6 +64,7 @@ Press `?` for every key. The essentials:
 | `h` `l` / `tab`, `1`–`6` | switch tab | `h` goes back |
 | `⏎` | open comments | links in the comment |
 | `space` | | collapse / expand |
+| `c` | read the thread | reply to the comment, in your browser |
 | `n` | | newest comments first / ranked |
 | `o` / `y` | open link / HN page in browser | same |
 | `s`, `S`, `H` | save, saved posts, history | same |
