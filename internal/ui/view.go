@@ -145,7 +145,7 @@ func (m *Model) status(t Theme) []string {
 	left = append(left, seg{" " + msg, t.Hint, false})
 	var right []seg
 	if v := m.s.UpdateAvailable; v != "" {
-		right = append(right, seg{"v" + v + " available · cintelis update  ", t.TextDim, false})
+		right = append(right, seg{"v" + v + " available · " + m.upgrade + "  ", t.TextDim, false})
 	}
 	if m.s.MouseOff {
 		right = append(right, seg{"mouse off (m)  ", t.Accent, false})

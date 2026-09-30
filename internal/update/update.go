@@ -126,6 +126,10 @@ func Run(current string) int {
 		fmt.Fprintf(os.Stderr, "cintelis: can't locate this executable: %v\n", err)
 		return 1
 	}
+	if HomebrewManaged(exe) {
+		fmt.Println("This copy was installed with Homebrew — update it with:\n  brew upgrade cintelis")
+		return 0
+	}
 	if err := install(ctx, latest, exe); err != nil {
 		fmt.Fprintf(os.Stderr, "cintelis: update failed: %v\n", err)
 		return 1
@@ -287,4 +291,20 @@ func CleanupOld() {
 	if exe, err := os.Executable(); err == nil {
 		os.Remove(exe + ".old")
 	}
+}
+
+// HomebrewManaged reports whether exe lives in a Homebrew Cellar. Homebrew
+// installs are upgraded with brew, which also keeps its records straight.
+func HomebrewManaged(exe string) bool {
+	return strings.Contains(filepath.ToSlash(exe), "/Cellar/cintelis/")
+}
+
+// UpgradeCommand is what to run to update this copy.
+func UpgradeCommand() string {
+	if exe, err := os.Executable(); err == nil {
+		if real, err := filepath.EvalSymlinks(exe); err == nil && HomebrewManaged(real) {
+			return "brew upgrade cintelis"
+		}
+	}
+	return "cintelis update"
 }

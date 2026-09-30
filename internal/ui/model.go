@@ -44,12 +44,14 @@ type Model struct {
 
 	latestSearch atomic.Int64 // gen of the newest search asked for
 
+	upgrade string // how to update this copy: "cintelis update", or "brew upgrade cintelis"
+
 	wrapWidth int
 	wraps     map[int][]string // comment id (story title/text: negative keys) → wrapped lines at wrapWidth
 }
 
 func New(s *app.State, client *hn.Client, saved, history store.File, version string) *Model {
-	return &Model{s: s, client: client, saved: saved, history: history, version: version, wraps: map[int][]string{}}
+	return &Model{s: s, client: client, saved: saved, history: history, version: version, wraps: map[int][]string{}, upgrade: update.UpgradeCommand()}
 }
 
 func (m *Model) Init() tea.Cmd {

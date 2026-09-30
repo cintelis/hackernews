@@ -6,7 +6,13 @@ no runtime, no account, no API keys. The command is `cintelis`.
 
 ## Install
 
-**macOS / Linux**
+**macOS / Linux** with [Homebrew](https://brew.sh)
+
+```sh
+brew install cintelis/tap/cintelis
+```
+
+**macOS / Linux** without Homebrew
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/cintelis/hackernews/main/install.sh | sh
@@ -22,7 +28,13 @@ Both scripts install the latest release only if its checksums are signed
 with the Cintelis release key and the download matches them. They check the
 signature with `ssh-keygen`, which macOS, Linux and Windows 10/11 already have.
 
-- **macOS / Linux** installs to `~/.local/bin/cintelis`.
+- **macOS / Linux** installs to `~/.local/bin/cintelis` and adds that folder
+  to your PATH in your shell's startup file (`~/.zshrc`, `~/.bashrc` or
+  `~/.bash_profile`, or fish's `config.fish`); set `CINTELIS_NO_MODIFY_PATH=1`
+  to skip that.
+- **Homebrew**'s formula is written from each release's signed checksums
+  ([cintelis/homebrew-tap](https://github.com/cintelis/homebrew-tap)); update
+  with `brew upgrade cintelis`.
 - **Windows** installs to `%LOCALAPPDATA%\Programs\cintelis\cintelis.exe`, adds
   that folder to your PATH, and adds **CISO AI - Hacker News** to the Start
   menu, so it's easy to find and reopen.
@@ -134,7 +146,10 @@ your Hacker News password.
 
 ## Uninstall
 
-- **macOS / Linux**: delete `~/.local/bin/cintelis` and `~/.config/cintelis`.
+- **Homebrew**: `brew uninstall cintelis`, then delete `~/.config/cintelis`.
+- **macOS / Linux**: delete `~/.local/bin/cintelis` and `~/.config/cintelis`,
+  and the line the installer added to your shell's startup file (marked
+  `# added by the cintelis installer`).
 - **Windows**: delete `%LOCALAPPDATA%\Programs\cintelis` and
   `%USERPROFILE%\.config\cintelis`, remove **CISO AI - Hacker News** from the
   Start menu (right-click → Uninstall, or delete it from
@@ -161,7 +176,8 @@ internal/hn/      API client, item cache, HTML → text, link parsing
 internal/store/   saved/history files, atomic writes
 internal/browser/ opens http(s) links without a shell
 internal/update/  release check, signature-checked self-update
-scripts/          sign-release.sh (maintainer, offline key), release-table.sh
+scripts/          sign-release.sh (maintainer, offline key), release-table.sh,
+                  brew-formula.sh
 ```
 
 `app` is the part to read first: every rule of navigation lives in
@@ -185,9 +201,11 @@ On Windows, run the signing script from PowerShell through Git Bash:
 `& 'C:\Program Files\Git\bin\bash.exe' scripts/sign-release.sh v1.0.0`.
 It asks for the key's passphrase once. Only admins can push `v*` tags.
 
-Nothing is installable until it's signed. After publishing, the script
-regenerates the release table above (`scripts/release-table.sh`) and opens a
-pull request for it that merges itself once CI passes.
+Nothing is installable until it's signed. After publishing, the script updates
+the Homebrew formula in cintelis/homebrew-tap from the signed checksums
+(`scripts/brew-formula.sh`), then regenerates the release table above
+(`scripts/release-table.sh`) and opens a pull request for it that merges itself
+once CI passes. It checks up front that your `gh` account can push to both.
 
 ## License
 
