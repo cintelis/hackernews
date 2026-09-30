@@ -1,0 +1,50 @@
+{
+  "RT_GROUP_ICON": {
+    "APP": {
+      "0000": "../assets/cisoai-mark.png"
+    }
+  },
+  "RT_MANIFEST": {
+    "#1": {
+      "0409": {
+        "identity": {},
+        "description": "CISO AI - Hacker News",
+        "minimum-os": "win10",
+        "execution-level": "as invoker",
+        "ui-access": false,
+        "auto-elevate": false,
+        "dpi-awareness": "system",
+        "disable-theming": false,
+        "disable-window-filtering": false,
+        "high-resolution-scrolling-aware": false,
+        "ultra-high-resolution-scrolling-aware": false,
+        "long-path-aware": true,
+        "printer-driver-isolation": false,
+        "gdi-scaling": false,
+        "segment-heap": false,
+        "use-common-controls-v6": false
+      }
+    }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "fixed": {
+          "file_version": "0.0.0.0",
+          "product_version": "0.0.0.0"
+        },
+        "info": {
+          "0409": {
+            "CompanyName": "Cintelis",
+            "FileDescription": "CISO AI - Hacker News",
+            "InternalName": "cintelis",
+            "LegalCopyright": "Copyright (c) 2026 Cintelis. MIT License.",
+            "OriginalFilename": "cintelis.exe",
+            "ProductName": "CISO AI - Hacker News",
+            "ProductVersion": "0.0.0"
+          }
+        }
+      }
+    }
+  }
+}

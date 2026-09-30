@@ -67,6 +67,7 @@ $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'CISO AI - Hack
 try {
     $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)
     $link.TargetPath = Join-Path $dir 'cintelis.exe'
+    $link.IconLocation = (Join-Path $dir 'cintelis.exe') + ',0' # the CISO AI mark built into the exe
     $link.WorkingDirectory = $env:USERPROFILE
     $link.Description = 'CISO AI - Hacker News, in the terminal (cintelis)'
     $link.Save()

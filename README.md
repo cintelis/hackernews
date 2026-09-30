@@ -143,6 +143,7 @@ go test ./...                            # unit tests, no network
 go test -tags live ./internal/hn/        # against the real APIs
 go test -tags live -run TestLiveFrames -v ./internal/ui/   # print real frames
 go run ./cmd/cintelis
+go generate ./cmd/cintelis                # Windows: build the CISO AI icon and file details into local builds
 ```
 
 ```
