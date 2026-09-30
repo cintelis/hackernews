@@ -6,6 +6,11 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Charm's x/* packages are internals of bubbletea/lipgloss and only move
+    # together with them (x/ansi 0.11 alone breaks lipgloss v1's x/cellbuf).
+    # Ignoring stops routine bumps; security updates still arrive.
+    ignore:
+      - dependency-name: "github.com/charmbracelet/x/*"
     groups:
       go-modules:
         patterns: ["*"]
