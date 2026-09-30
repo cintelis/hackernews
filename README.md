@@ -28,6 +28,10 @@ Both scripts install the latest release only if its checksums are signed
 with the Cintelis release key and the download matches them. They check the
 signature with `ssh-keygen`, which macOS, Linux and Windows 10/11 already have.
 
+- **macOS** also gets **CISO AI - Hacker News** in `~/Applications`, with the
+  CISO AI icon: find it in Launchpad or Spotlight, or keep it in the Dock. It
+  opens `cintelis` in a Terminal window. With Homebrew, run
+  `cintelis install-app` once to add it.
 - **macOS / Linux** installs to `~/.local/bin/cintelis` and adds that folder
   to your PATH in your shell's startup file (`~/.zshrc`, `~/.bashrc` or
   `~/.bash_profile`, or fish's `config.fish`); set `CINTELIS_NO_MODIFY_PATH=1`
@@ -73,6 +77,7 @@ yourself, see [SECURITY.md](SECURITY.md#verifying-a-release-yourself).
 cintelis            browse
 cintelis update     update to the latest release (signature-checked)
 cintelis version    print the version
+cintelis install-app  macOS: add the app to ~/Applications (Launchpad, Spotlight, Dock)
 ```
 
 The running version is shown at the top right of the screen; when a newer
@@ -146,8 +151,10 @@ your Hacker News password.
 
 ## Uninstall
 
-- **Homebrew**: `brew uninstall cintelis`, then delete `~/.config/cintelis`.
-- **macOS / Linux**: delete `~/.local/bin/cintelis` and `~/.config/cintelis`,
+- **Homebrew**: `brew uninstall cintelis`, then delete `~/.config/cintelis`
+  and, if you added it, `~/Applications/CISO AI - Hacker News.app`.
+- **macOS / Linux**: delete `~/.local/bin/cintelis`, `~/.config/cintelis` and
+  (macOS) `~/Applications/CISO AI - Hacker News.app`,
   and the line the installer added to your shell's startup file (marked
   `# added by the cintelis installer`).
 - **Windows**: delete `%LOCALAPPDATA%\Programs\cintelis` and
@@ -176,8 +183,10 @@ internal/hn/      API client, item cache, HTML → text, link parsing
 internal/store/   saved/history files, atomic writes
 internal/browser/ opens http(s) links without a shell
 internal/update/  release check, signature-checked self-update
+internal/macapp/  the macOS app bundle (install-app); AppIcon.icns from tools/mkicns
 scripts/          sign-release.sh (maintainer, offline key), release-table.sh,
                   brew-formula.sh
+tools/mkicns/     builds AppIcon.icns from assets/cisoai-mark.png (own module)
 ```
 
 `app` is the part to read first: every rule of navigation lives in

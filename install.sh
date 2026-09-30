@@ -69,6 +69,13 @@ chmod +x "$INSTALL_DIR/cintelis"
 
 echo "installed: $INSTALL_DIR/cintelis"
 
+# macOS: "CISO AI - Hacker News" in ~/Applications, for Launchpad, Spotlight
+# and the Dock. It runs whichever cintelis is installed.
+if [ "$os" = "darwin" ]; then
+  "$INSTALL_DIR/cintelis" install-app ||
+    echo "note: couldn't add the app to ~/Applications — run: cintelis install-app"
+fi
+
 # Put INSTALL_DIR on the PATH for new terminals: one marked line in the
 # shell's startup file, added once. CINTELIS_NO_MODIFY_PATH=1 skips it.
 case ":$PATH:" in

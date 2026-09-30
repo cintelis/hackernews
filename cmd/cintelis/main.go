@@ -11,6 +11,7 @@ import (
 
 	"github.com/cintelis/hackernews/internal/app"
 	"github.com/cintelis/hackernews/internal/hn"
+	"github.com/cintelis/hackernews/internal/macapp"
 	"github.com/cintelis/hackernews/internal/store"
 	"github.com/cintelis/hackernews/internal/ui"
 	"github.com/cintelis/hackernews/internal/update"
@@ -26,9 +27,11 @@ var version = "dev"
 
 const usage = `usage: cintelis [command]
 
-  (none)     browse Hacker News
-  update     update to the latest release
-  version    print the version
+  (none)       browse Hacker News
+  update       update to the latest release
+  install-app  macOS: add "CISO AI - Hacker News" to ~/Applications
+               (Launchpad, Spotlight, Dock)
+  version      print the version
 
 Environment:
   CINTELIS_CONFIG_DIR        where saved posts and history live (default ~/.config/cintelis)
@@ -52,6 +55,14 @@ func run(args []string) int {
 			return 0
 		case "update":
 			return update.Run(version)
+		case "install-app":
+			app, err := macapp.Install(version)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "cintelis: %v\n", err)
+				return 1
+			}
+			fmt.Printf("added %s\n  find %q in Launchpad or Spotlight; drag it to the Dock to keep it there\n", app, macapp.Name)
+			return 0
 		case "help", "--help", "-h":
 			fmt.Print(usage)
 			return 0
