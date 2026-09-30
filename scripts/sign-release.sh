@@ -13,6 +13,7 @@
 set -eu
 
 REPO="cintelis/hackernews"
+TAP="cintelis/homebrew-tap"
 NS="cintelis-release"
 tag="${1:?usage: scripts/sign-release.sh vX.Y.Z [private key]}"
 key="${2:-$HOME/.ssh/cintelis-release}"
@@ -23,11 +24,13 @@ pub="$root/internal/update/release_key.pub"
 # the release-table PR at the end is pushed with gh's active account: check
 # it can write here before anything is signed or published
 who=$(gh api user --jq .login)
-if [ "$(gh api "repos/$REPO" --jq .permissions.push)" != "true" ]; then
-  echo "gh is logged in as $who, which can't push to $REPO." >&2
-  echo "Switch to an account that can: gh auth switch --user <account>" >&2
-  exit 1
-fi
+for r in "$REPO" "$TAP"; do
+  if [ "$(gh api "repos/$r" --jq .permissions.push)" != "true" ]; then
+    echo "gh is logged in as $who, which can't push to $r." >&2
+    echo "Switch to an account that can: gh auth switch --user <account>" >&2
+    exit 1
+  fi
+done
 if [ "$(gh release view "$tag" -R "$REPO" --json isDraft --jq .isDraft)" != "true" ]; then
   echo "$tag is not a draft release (already published, or not built yet)" >&2
   exit 1
@@ -63,6 +66,17 @@ ssh-keygen -Y verify -f "$tmp/allowed_signers" -I "$NS" -n "$NS" \
 gh release upload "$tag" "$tmp/checksums.txt.sig" -R "$REPO" --clobber
 gh release edit "$tag" -R "$REPO" --draft=false --latest
 echo "published $tag"
+
+# Homebrew: the tap's formula, written from the checksums just signed (it
+# re-verifies them). Homebrew checks only the formula's sha256s, so the
+# formula comes from here, never from CI.
+git clone -q "https://github.com/$TAP.git" "$tmp/tap"
+mkdir -p "$tmp/tap/Formula"
+"$root/scripts/brew-formula.sh" "$tag" > "$tmp/tap/Formula/cintelis.rb"
+git -C "$tmp/tap" add Formula/cintelis.rb
+git -C "$tmp/tap" commit -q -m "cintelis $tag"
+git -C "$tmp/tap" push -q origin HEAD
+echo "Homebrew formula updated to $tag (brew upgrade cintelis)"
 
 # Record it in the README's release table: a PR that merges itself once CI
 # passes. Skipped (with a note) if the checkout has uncommitted work.

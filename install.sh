@@ -68,7 +68,31 @@ mv "$tmp/cintelis" "$INSTALL_DIR/cintelis"
 chmod +x "$INSTALL_DIR/cintelis"
 
 echo "installed: $INSTALL_DIR/cintelis"
+
+# Put INSTALL_DIR on the PATH for new terminals: one marked line in the
+# shell's startup file, added once. CINTELIS_NO_MODIFY_PATH=1 skips it.
 case ":$PATH:" in
-  *":$INSTALL_DIR:"*) ;;
-  *) echo "note: $INSTALL_DIR is not on your PATH — add it to your shell profile" ;;
+  *":$INSTALL_DIR:"*) exit 0 ;;
 esac
+if [ "${CINTELIS_NO_MODIFY_PATH:-}" = "1" ]; then
+  echo "note: $INSTALL_DIR is not on your PATH — add it to your shell profile"
+  exit 0
+fi
+line="export PATH=\"$INSTALL_DIR:\$PATH\""
+case "$(basename "${SHELL:-sh}")" in
+  zsh) profile="${ZDOTDIR:-$HOME}/.zshrc" ;;
+  bash)
+    # macOS Terminal starts login shells, which read .bash_profile, not .bashrc
+    if [ "$os" = "darwin" ]; then profile="$HOME/.bash_profile"; else profile="$HOME/.bashrc"; fi ;;
+  fish)
+    profile="$HOME/.config/fish/config.fish"
+    line="fish_add_path \"$INSTALL_DIR\"" ;;
+  *) profile="$HOME/.profile" ;;
+esac
+if [ -f "$profile" ] && grep -Fq "$INSTALL_DIR" "$profile"; then
+  echo "$INSTALL_DIR is set up in $profile — open a new terminal to use cintelis"
+else
+  mkdir -p "$(dirname "$profile")"
+  printf '\n# added by the cintelis installer\n%s\n' "$line" >> "$profile"
+  echo "added $INSTALL_DIR to your PATH in $profile — open a new terminal to use cintelis"
+fi

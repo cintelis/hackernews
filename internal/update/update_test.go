@@ -87,3 +87,17 @@ func TestExtractZip(t *testing.T) {
 		t.Fatal("garbage should fail")
 	}
 }
+
+func TestHomebrewManaged(t *testing.T) {
+	for exe, want := range map[string]bool{
+		"/opt/homebrew/Cellar/cintelis/0.4.0/bin/cintelis":              true,
+		"/usr/local/Cellar/cintelis/0.4.0/bin/cintelis":                 true,
+		"/home/linuxbrew/.linuxbrew/Cellar/cintelis/0.4.0/bin/cintelis": true,
+		"/Users/me/.local/bin/cintelis":                                 false,
+		`C:\Users\me\AppData\Local\Programs\cintelis\cintelis.exe`:      false,
+	} {
+		if got := HomebrewManaged(exe); got != want {
+			t.Errorf("HomebrewManaged(%q) = %v", exe, got)
+		}
+	}
+}
