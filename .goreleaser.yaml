@@ -4,6 +4,13 @@
 version: 2
 project_name: cintelis
 
+before:
+  hooks:
+    # Windows: build the CISO AI icon and the file details (product, company,
+    # version) into cintelis.exe, from winres/winres.json. Build-time only;
+    # nothing is added to the program's dependencies.
+    - go run github.com/tc-hib/go-winres@v0.3.3 make --in winres/winres.json --out cmd/cintelis/rsrc --arch amd64,arm64 --product-version {{ .Major }}.{{ .Minor }}.{{ .Patch }}.0 --file-version {{ .Major }}.{{ .Minor }}.{{ .Patch }}.0
+
 builds:
   - id: cintelis
     main: ./cmd/cintelis

@@ -16,6 +16,11 @@ import (
 	"github.com/cintelis/hackernews/internal/update"
 )
 
+// Windows icon and file details for local builds (release builds do this in
+// .goreleaser.yaml, with the real version):
+//
+//go:generate go run github.com/tc-hib/go-winres@v0.3.3 make --in ../../winres/winres.json --out rsrc --arch amd64,arm64
+
 // version is set at release build time (see .goreleaser.yaml).
 var version = "dev"
 
