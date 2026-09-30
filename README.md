@@ -81,9 +81,14 @@ Press `?` for every key. The essentials:
 | `r` | refresh | refresh |
 | `/` | search all of Hacker News | same |
 | `x` | clear history (History tab) | |
+| `Y` / `C` | copy the story's link / title | copy the comment's link / text |
+| `m` | mouse off/on | same |
 | `t`, `?`, `q` | theme, all keys, quit | same |
 
-The mouse wheel scrolls lists and threads.
+The mouse wheel scrolls lists and threads. To select text with the mouse,
+press `m` to hand the mouse to your terminal (click-and-drag then selects,
+the scroll wheel pauses) and `m` again to take it back; or hold **Shift**
+while dragging. `Y` and `C` copy straight to the clipboard.
 
 **Search** (`/`) looks through every story title on Hacker News as you type,
 and tolerates typos ("kubernets" finds Kubernetes). Like hn.algolia.com, it

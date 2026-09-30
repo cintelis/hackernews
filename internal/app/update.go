@@ -141,6 +141,14 @@ func (s *State) command(c Command) []Effect {
 	case CmdTheme:
 		s.Light = !s.Light
 		return nil
+	case CmdToggleMouse:
+		s.MouseOff = !s.MouseOff
+		if s.MouseOff {
+			s.Flash = "mouse off: drag to select text, then copy — m turns it back on"
+		} else {
+			s.Flash = "mouse on: the scroll wheel works again"
+		}
+		return []Effect{SetMouse{On: !s.MouseOff}}
 	case CmdSavedView:
 		return s.goHome(CatSaved)
 	case CmdHistoryView:
@@ -230,6 +238,14 @@ func (s *State) listCommand(c Command) []Effect {
 		return append(s.markViewed(cur.ID), OpenURL{URL: hn.ItemURL(cur.ID)})
 	case CmdToggleSave:
 		return s.toggleSave(cur.ID)
+	case CmdCopyLink:
+		url := cur.URL
+		if url == "" {
+			url = hn.ItemURL(cur.ID)
+		}
+		return []Effect{CopyText{Text: url, What: "link"}}
+	case CmdCopyText:
+		return []Effect{CopyText{Text: cur.Title, What: "title"}}
 	}
 	return nil
 }
@@ -292,6 +308,22 @@ func (s *State) detailCommand(c Command) []Effect {
 		return []Effect{OpenURL{URL: hn.ReplyURL(d.Story.ID, cur.ID)}}
 	case CmdToggleSave:
 		return s.toggleSave(d.Story.ID)
+	case CmdCopyLink:
+		if cur := d.Current(); cur != nil {
+			return []Effect{CopyText{Text: hn.ItemURL(cur.ID), What: "comment link"}}
+		}
+		url := d.Story.URL
+		if url == "" {
+			url = hn.ItemURL(d.Story.ID)
+		}
+		return []Effect{CopyText{Text: url, What: "link"}}
+	case CmdCopyText:
+		cur := d.Current()
+		if cur == nil || cur.Deleted || cur.Text == "" {
+			s.Flash = "nothing to copy here"
+			return nil
+		}
+		return []Effect{CopyText{Text: cur.Text, What: "comment"}}
 	case CmdRefresh:
 		d.gen = s.gen()
 		d.Loading = true

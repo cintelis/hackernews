@@ -147,6 +147,9 @@ func (m *Model) status(t Theme) []string {
 	if v := m.s.UpdateAvailable; v != "" {
 		right = append(right, seg{"v" + v + " available · cintelis update  ", t.TextDim, false})
 	}
+	if m.s.MouseOff {
+		right = append(right, seg{"mouse off (m)  ", t.Accent, false})
+	}
 	right = append(right, seg{"? help ", t.Hint, false})
 	return []string{
 		line(w, t.Strip, seg{strings.Repeat("─", w), t.Border, false}),

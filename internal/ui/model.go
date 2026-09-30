@@ -13,6 +13,7 @@ import (
 
 	"github.com/cintelis/hackernews/internal/app"
 	"github.com/cintelis/hackernews/internal/browser"
+	"github.com/cintelis/hackernews/internal/clipboard"
 	"github.com/cintelis/hackernews/internal/hn"
 	"github.com/cintelis/hackernews/internal/keymap"
 	"github.com/cintelis/hackernews/internal/store"
@@ -187,6 +188,18 @@ func (m *Model) run(e app.Effect) tea.Cmd {
 			story, focus, err := client.Resolve(ctx, e.Ref)
 			return app.Resolved{Gen: e.Gen, Story: story, Focus: focus, Err: err}
 		}
+	case app.CopyText:
+		return func() tea.Msg {
+			if err := clipboard.Copy(e.Text); err != nil {
+				return app.Flash{Text: "couldn't copy: " + err.Error()}
+			}
+			return app.Flash{Text: "copied " + e.What + " to the clipboard"}
+		}
+	case app.SetMouse:
+		if e.On {
+			return tea.EnableMouseCellMotion
+		}
+		return tea.DisableMouse
 	case app.OpenURL:
 		return func() tea.Msg {
 			if err := browser.Open(e.URL); err != nil {

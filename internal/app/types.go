@@ -95,6 +95,9 @@ const (
 	CmdSearchOrder // order,
 	CmdSearchRange // and time range
 	CmdReply       // reply to the comment, in the browser
+	CmdCopyLink    // copy the story's or comment's link
+	CmdCopyText    // copy the story's title or the comment's text
+	CmdToggleMouse // let the terminal have the mouse, for selecting text
 )
 
 // Action is anything Update accepts: a Command or one of the result types below.
@@ -160,6 +163,8 @@ type (
 		Ref hn.ItemRef
 	}
 	OpenURL     struct{ URL string }
+	CopyText    struct{ Text, What string } // What: for the confirmation, e.g. "link"
+	SetMouse    struct{ On bool }
 	SaveSaved   struct{ Entries []store.Entry }
 	SaveHistory struct{ Entries []store.Entry }
 	Quit        struct{}

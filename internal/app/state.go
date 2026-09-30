@@ -130,6 +130,9 @@ type State struct {
 	Help   bool
 	Search Search
 	Light  bool
+	// MouseOff hands the mouse to the terminal, so click-and-drag selects
+	// text; the app's scroll wheel is off until it's switched back
+	MouseOff bool
 
 	Saved   []store.Entry
 	History []store.Entry

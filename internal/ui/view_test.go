@@ -183,3 +183,14 @@ func TestHeaderShowsVersion(t *testing.T) {
 		}
 	}
 }
+
+func TestMouseOffIndicator(t *testing.T) {
+	m := newModel(t, 100, 24)
+	if strings.Contains(ansi.Strip(m.View()), "mouse off") {
+		t.Fatal("indicator shown while the mouse is on")
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	if out := ansi.Strip(checkFrame(t, m)); !strings.Contains(out, "mouse off (m)") {
+		t.Fatalf("no indicator:\n%s", out)
+	}
+}
