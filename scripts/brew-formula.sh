@@ -73,6 +73,15 @@ class Cintelis < Formula
     bin.install "cintelis"
   end
 
+  def caveats
+    return unless OS.mac?
+
+    <<~EOS
+      To add CISO AI - Hacker News to Launchpad, Spotlight and the Dock, run:
+        cintelis install-app
+    EOS
+  end
+
   test do
     assert_match "cintelis #{version}", shell_output("#{bin}/cintelis version")
   end
