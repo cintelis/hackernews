@@ -8,7 +8,7 @@ Don't open a public issue for security problems.
 
 ## How releases are protected
 
-- **Signed.** Every release's `checksums.txt` is signed with the cintelis
+- **Signed.** Every release's `checksums.txt` is signed with the Cintelis
   release key, an Ed25519 key kept offline by the maintainer and never
   stored on GitHub. `cintelis update`, `install.sh` and `install.ps1` refuse
   any release whose signature doesn't verify, then check the archive against

@@ -1,8 +1,8 @@
 # CISO AI - Hacker News
 
-A fast Hacker News reader for the terminal. One small binary for macOS,
-Linux and Windows, no runtime, no account, no API keys. The command is
-`cintelis`.
+A fast Hacker News reader for the terminal, from the CISO AI range by
+[Cintelis](https://cintelis.ai). One small binary for macOS, Linux and Windows:
+no runtime, no account, no API keys. The command is `cintelis`.
 
 ## Install
 
@@ -18,10 +18,16 @@ curl -fsSL https://raw.githubusercontent.com/cintelis/hackernews/main/install.sh
 irm https://raw.githubusercontent.com/cintelis/hackernews/main/install.ps1 | iex
 ```
 
-On Windows it also adds **CISO AI - Hacker News** to the Start menu.
-
 Both scripts install the latest release only if its checksums are signed
-with the cintelis release key and the download matches them. Or, with Go installed:
+with the Cintelis release key and the download matches them. They check the
+signature with `ssh-keygen`, which macOS, Linux and Windows 10/11 already have.
+
+- **macOS / Linux** installs to `~/.local/bin/cintelis`.
+- **Windows** installs to `%LOCALAPPDATA%\Programs\cintelis\cintelis.exe`, adds
+  that folder to your PATH, and adds **CISO AI - Hacker News** to the Start
+  menu, so it's easy to find and reopen.
+
+Or, with Go installed:
 
 ```sh
 go install github.com/cintelis/hackernews/cmd/cintelis@latest
@@ -33,7 +39,7 @@ vulnerability.
 
 ## Releases
 
-Every published release, newest first. Each is signed with the cintelis
+Every published release, newest first. Each is signed with the Cintelis
 release key; installers and `cintelis update` refuse anything that isn't.
 
 <!-- releases:start -->
@@ -51,9 +57,12 @@ yourself, see [SECURITY.md](SECURITY.md#verifying-a-release-yourself).
 
 ```
 cintelis            browse
-cintelis update     update to the latest release (checksum-verified)
+cintelis update     update to the latest release (signature-checked)
 cintelis version    print the version
 ```
+
+The running version is shown at the top right of the screen; when a newer
+release exists, the status bar says so.
 
 Press `?` for every key. The essentials:
 
@@ -63,14 +72,17 @@ Press `?` for every key. The essentials:
 | `gg` `G`, `ctrl+d` `ctrl+u` | top / bottom, half page | same |
 | `h` `l` / `tab`, `1`–`6` | switch tab | `h` goes back |
 | `⏎` | open comments | links in the comment |
-| `space` | | collapse / expand |
+| `space` | | fold / unfold replies |
 | `c` | read the thread | reply to the comment, in your browser |
 | `n` | | newest comments first / ranked |
 | `o` / `y` | open link / HN page in browser | same |
 | `s`, `S`, `H` | save, saved posts, history | same |
 | `r` | refresh | refresh |
 | `/` | search all of Hacker News | same |
-| `t`, `q` | theme, quit | same |
+| `x` | clear history (History tab) | |
+| `t`, `?`, `q` | theme, all keys, quit | same |
+
+The mouse wheel scrolls lists and threads.
 
 **Search** (`/`) looks through every story title on Hacker News as you type,
 and tolerates typos ("kubernets" finds Kubernetes). Like hn.algolia.com, it
@@ -96,7 +108,9 @@ again returns to HN's ranked order on the same comment. Points are Hacker
 News's own score for a story (its upvotes); HN doesn't publish comment scores.
 
 Links to other HN posts open inside the app, landing on the linked comment;
-`h`/`esc` walks back through them.
+`h`/`esc` walks back through them. `c` opens HN's reply page for the comment
+you're on, in your browser, where you're logged in: the app never asks for
+your Hacker News password.
 
 ## Data and privacy
 
@@ -108,7 +122,18 @@ Links to other HN posts open inside the app, landing on the linked comment;
   `CINTELIS_NO_UPDATE_CHECK=1` to skip that.
 - Saved posts and history stay on your machine in `~/.config/cintelis`
   (`saved.json`, `history.json`; override with `CINTELIS_CONFIG_DIR`).
+- It stores no Hacker News login; replies happen in your browser.
 - No telemetry.
+
+## Uninstall
+
+- **macOS / Linux**: delete `~/.local/bin/cintelis` and `~/.config/cintelis`.
+- **Windows**: delete `%LOCALAPPDATA%\Programs\cintelis` and
+  `%USERPROFILE%\.config\cintelis`, remove **CISO AI - Hacker News** from the
+  Start menu (right-click → Uninstall, or delete it from
+  `%APPDATA%\Microsoft\Windows\Start Menu\Programs`), and remove the
+  `…\Programs\cintelis` entry from your user PATH (Settings → System → About →
+  Advanced system settings → Environment Variables).
 
 ## Development
 
@@ -127,7 +152,8 @@ internal/ui/      Bubble Tea shell: keys → commands, runs effects, renders
 internal/hn/      API client, item cache, HTML → text, link parsing
 internal/store/   saved/history files, atomic writes
 internal/browser/ opens http(s) links without a shell
-internal/update/  release check and checksum-verified self-update
+internal/update/  release check, signature-checked self-update
+scripts/          sign-release.sh (maintainer, offline key), release-table.sh
 ```
 
 `app` is the part to read first: every rule of navigation lives in
@@ -141,11 +167,15 @@ release key, which checks the draft's provenance and checksums first and
 publishes it:
 
 ```sh
-git tag v1.0.0
+git tag -a v1.0.0 -m "cintelis v1.0.0"
 git push origin v1.0.0
-# once the workflow finishes:
+# once the workflow finishes (a few minutes):
 scripts/sign-release.sh v1.0.0
 ```
+
+On Windows, run the signing script from PowerShell through Git Bash:
+`& 'C:\Program Files\Git\bin\bash.exe' scripts/sign-release.sh v1.0.0`.
+It asks for the key's passphrase once. Only admins can push `v*` tags.
 
 Nothing is installable until it's signed. After publishing, the script
 regenerates the release table above (`scripts/release-table.sh`) and opens a

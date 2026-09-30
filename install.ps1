@@ -1,5 +1,5 @@
 # cintelis installer for Windows: downloads the latest release, checks that its
-# checksums.txt is signed with the cintelis release key and that the archive
+# checksums.txt is signed with the Cintelis release key and that the archive
 # matches it, installs it and adds it to your PATH. Uses the OpenSSH client
 # built into Windows 10 (1809+) and 11 to check the signature.
 #   irm https://raw.githubusercontent.com/cintelis/hackernews/main/install.ps1 | iex
@@ -45,7 +45,7 @@ try {
         -ArgumentList @('-Y', 'verify', '-f', "`"$signers`"", '-I', 'cintelis-release', '-n', 'cintelis-release', '-s', "`"$sig`"") `
         -RedirectStandardInput $sums `
         -RedirectStandardOutput (Join-Path $tmp 'verify.out') -RedirectStandardError (Join-Path $tmp 'verify.err')
-    if ($check.ExitCode -ne 0) { throw "v$version is not signed with the cintelis release key - not installing" }
+    if ($check.ExitCode -ne 0) { throw "v$version is not signed with the Cintelis release key - not installing" }
 
     $want = Get-Content $sums |
         ForEach-Object { $f = $_ -split '\s+'; if ($f[1] -eq $asset) { $f[0] } } |
