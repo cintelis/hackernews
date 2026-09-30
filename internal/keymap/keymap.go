@@ -54,8 +54,9 @@ var Bindings = []Binding{
 	{list, []string{"enter", "c"}, app.CmdOpen, "⏎ / c", "read the thread", "⏎ open"},
 	{list, []string{"x"}, app.CmdClearHistory, "x", "forget history (History tab)", ""},
 
-	{detail, []string{" "}, app.CmdCollapse, "space", "fold / unfold replies", "space fold"},
+	{detail, []string{" "}, app.CmdCollapse, "space", "fold / unfold replies", ""},
 	{detail, []string{"n"}, app.CmdSortNewest, "n", "newest comments first / ranked", "n newest"},
+	{detail, []string{"c"}, app.CmdReply, "c", "reply to this comment (in your browser)", "c reply"},
 	{detail, []string{"enter"}, app.CmdLinks, "⏎", "list this comment's links", "⏎ links"},
 
 	{browse, []string{"o"}, app.CmdOpenURL, "o", "open the story's link", ""},

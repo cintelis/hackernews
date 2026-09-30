@@ -39,6 +39,7 @@ func main() {
 }
 
 func run(args []string) int {
+	update.CleanupOld() // on any run: the binary an update replaced isn't running any more
 	if len(args) > 0 {
 		switch args[0] {
 		case "version", "--version", "-v":
@@ -55,7 +56,6 @@ func run(args []string) int {
 		}
 	}
 
-	update.CleanupOld()
 	dir, err := store.Dir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cintelis: %v\n", err)

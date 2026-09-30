@@ -94,6 +94,7 @@ const (
 	CmdSearchType  // cycle the search filters: type,
 	CmdSearchOrder // order,
 	CmdSearchRange // and time range
+	CmdReply       // reply to the comment, in the browser
 )
 
 // Action is anything Update accepts: a Command or one of the result types below.

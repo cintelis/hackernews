@@ -582,3 +582,29 @@ func TestSearchFilters(t *testing.T) {
 		t.Fatal("filter keys should do nothing on other tabs")
 	}
 }
+
+func TestReplyInBrowser(t *testing.T) {
+	s := loaded(t, 1, 1)
+	th := must[FetchThread](t, s.Update(CmdOpen))
+	s.Update(ThreadLoaded{Gen: th.Gen, Tree: timedTree()}) // cursor on comment 1 of story 1
+	if u := must[OpenURL](t, s.Update(CmdReply)); u.URL != hn.ReplyURL(1, 1) {
+		t.Fatalf("reply opened %q", u.URL)
+	}
+	s.Update(CmdSortNewest) // flat list, deleted placeholder dropped; put the cursor on one anyway
+	s.Detail.Flat = Flatten(timedTree(), nil)
+	s.Detail.Cursor = len(s.Detail.Flat) - 2 // the deleted comment 5
+	if s.Detail.Current().ID != 5 {
+		t.Fatalf("setup: cursor on %d", s.Detail.Current().ID)
+	}
+	if eff := s.Update(CmdReply); len(eff) != 0 || s.Flash == "" {
+		t.Fatal("replying to a deleted comment should explain, not open anything")
+	}
+
+	// a thread with no comments: the story page has the comment box
+	s2 := loaded(t, 1, 1)
+	s2.List.Items[0].Kids, s2.List.Items[0].Descendants = nil, 0
+	s2.Update(CmdOpen)
+	if u := must[OpenURL](t, s2.Update(CmdReply)); u.URL != hn.ItemURL(1) {
+		t.Fatalf("empty thread opened %q", u.URL)
+	}
+}

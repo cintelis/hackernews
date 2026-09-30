@@ -171,3 +171,15 @@ func TestRenderSearchFilters(t *testing.T) {
 		t.Fatalf("browse frame:\n%s", out)
 	}
 }
+
+func TestHeaderShowsVersion(t *testing.T) {
+	for version, want := range map[string]string{"0.2.0": "v0.2.0", "dev": "dev", "0.1.0-local": "v0.1.0-local"} {
+		dir := t.TempDir()
+		m := New(app.New(nil, nil), hn.NewClient(), store.Saved(dir), store.History(dir), version)
+		m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+		first := strings.SplitN(ansi.Strip(checkFrame(t, m)), "\n", 2)[0]
+		if !strings.HasSuffix(strings.TrimRight(first, " "), want) {
+			t.Errorf("version %q: header %q should end with %q", version, first, want)
+		}
+	}
+}

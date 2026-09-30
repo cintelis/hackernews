@@ -61,6 +61,20 @@ try {
     Remove-Item -Recurse -Force $tmp
 }
 
+# A Start menu entry, so the app can be found and reopened from Start. It
+# points at the installed exe, which `cintelis update` replaces in place.
+$shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'CISO AI - Hacker News.lnk'
+try {
+    $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)
+    $link.TargetPath = Join-Path $dir 'cintelis.exe'
+    $link.WorkingDirectory = $env:USERPROFILE
+    $link.Description = 'CISO AI - Hacker News, in the terminal (cintelis)'
+    $link.Save()
+    Write-Host "added to the Start menu: CISO AI - Hacker News"
+} catch {
+    Write-Host "couldn't add a Start menu shortcut ($_) - run cintelis from a terminal instead"
+}
+
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 if (-not $userPath) { $userPath = '' }
 if (($userPath -split ';') -notcontains $dir) {
