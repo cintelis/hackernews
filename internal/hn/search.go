@@ -11,69 +11,146 @@ import (
 
 const searchHits = 50
 
+// enoughExact: sorted by date, fewer exact-word matches than this and the
+// typo-tolerant ones are merged in — a misspelled query ("kubernets") has a
+// few exact matches, all misspelled the same way, and misses what was meant.
+const enoughExact = 10
+
 // SearchKind says how a search found its results.
 type SearchKind int
 
 const (
-	SearchMatched SearchKind = iota // Algolia: every word, typo-tolerant
-	SearchAnyWord                   // Algolia: no story had every word; closest by any word
+	SearchMatched SearchKind = iota // Algolia: every word (typo-tolerant when needed)
+	SearchAnyWord                   // Algolia: no title had every word; closest by any word
 	SearchLoaded                    // local fuzzy match over stories loaded this session
 )
 
-type algoliaHit struct {
-	ObjectID    string  `json:"objectID"`
-	Title       *string `json:"title"`
-	URL         *string `json:"url"`
-	Author      string  `json:"author"`
-	Points      *int    `json:"points"`
-	NumComments *int    `json:"num_comments"`
-	CreatedAtI  int64   `json:"created_at_i"`
+// SearchOptions narrow a search, like the filters on hn.algolia.com.
+type SearchOptions struct {
+	Tag    string // Algolia tag: story (default), ask_hn, show_hn, launch_hn, job, poll
+	ByDate bool   // newest first; otherwise by popularity (relevance, then points)
+	Since  int64  // unix seconds; only items created after it (0: all time)
 }
 
-// Search finds stories for a query, relaxing step by step: Algolia with
-// every word (it tolerates typos and matches word prefixes), then Algolia
-// with any word, then a local fuzzy match over the stories already loaded —
-// which is also the answer when Algolia can't be reached.
-func (c *Client) Search(ctx context.Context, query string) ([]Item, SearchKind, error) {
+func (o SearchOptions) tag() string {
+	if o.Tag == "" {
+		return "story"
+	}
+	return o.Tag
+}
+
+type algoliaHit struct {
+	ObjectID    string   `json:"objectID"`
+	Title       *string  `json:"title"`
+	URL         *string  `json:"url"`
+	Author      string   `json:"author"`
+	Points      *int     `json:"points"`
+	NumComments *int     `json:"num_comments"`
+	CreatedAtI  int64    `json:"created_at_i"`
+	Tags        []string `json:"_tags"`
+}
+
+// search attempt strictness
+type strictness int
+
+const (
+	exactWords strictness = iota // every word, no typos
+	typoWords                    // every word, typo-tolerant
+	anyWords                     // any word, typo-tolerant
+)
+
+// Search finds stories for a query, relaxing step by step until something
+// matches: every word, then (for multi-word queries) any word, then a local
+// fuzzy match over the stories already loaded — which is also the answer
+// when Algolia can't be reached. Sorted by date, the first step is exact
+// words only: typo matches aren't ranked below exact ones by date, and would
+// crowd them out.
+//
+// An empty query with non-default options browses: "Show HN, past week, by
+// popularity" needs no words.
+func (c *Client) Search(ctx context.Context, query string, opt SearchOptions) ([]Item, SearchKind, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
-		return nil, SearchMatched, nil
+		items, err := c.algoliaSearch(ctx, "", opt, typoWords)
+		return items, SearchMatched, err
 	}
-	items, err := c.algoliaSearch(ctx, query, false)
-	if err == nil && len(items) > 0 {
-		return items, SearchMatched, nil
+	steps := []strictness{typoWords}
+	if opt.ByDate {
+		steps = []strictness{exactWords, typoWords}
 	}
-	if err == nil && len(strings.Fields(query)) > 1 {
-		if items, err = c.algoliaSearch(ctx, query, true); err == nil && len(items) > 0 {
-			return items, SearchAnyWord, nil
+	if len(strings.Fields(query)) > 1 {
+		steps = append(steps, anyWords)
+	}
+	var err error
+	var exact []Item
+	for _, step := range steps {
+		var items []Item
+		if items, err = c.algoliaSearch(ctx, query, opt, step); err != nil {
+			break
+		}
+		if step == exactWords {
+			if len(items) >= enoughExact {
+				return items, SearchMatched, nil
+			}
+			exact = items
+			continue
+		}
+		if step == typoWords && len(exact) > 0 {
+			return mergeByDate(exact, items), SearchMatched, nil
+		}
+		if len(items) > 0 {
+			kind := SearchMatched
+			if step == anyWords {
+				kind = SearchAnyWord
+				if opt.ByDate {
+					sort.SliceStable(items, func(i, j int) bool { return items[i].Time > items[j].Time })
+				}
+			}
+			return items, kind, nil
 		}
 	}
 	if ctx.Err() != nil {
 		return nil, SearchMatched, ctx.Err()
 	}
-	if local := FuzzyRank(query, c.cachedStories(), searchHits); len(local) > 0 {
+	if local := FuzzyRank(query, filterLocal(c.cachedStories(), opt), searchHits); len(local) > 0 {
+		if opt.ByDate {
+			sort.SliceStable(local, func(i, j int) bool { return local[i].Time > local[j].Time })
+		}
 		return local, SearchLoaded, nil
 	}
 	return nil, SearchMatched, err
 }
 
-func (c *Client) algoliaSearch(ctx context.Context, query string, anyWord bool) ([]Item, error) {
+func (c *Client) algoliaSearch(ctx context.Context, query string, opt SearchOptions, step strictness) ([]Item, error) {
 	q := url.Values{
 		"query":       {query},
-		"tags":        {"story"},
+		"tags":        {opt.tag()},
 		"hitsPerPage": {strconv.Itoa(searchHits)},
 		// titles only: matching URLs and story text lets typo tolerance
 		// stitch together weak "every word" matches, which then block the
 		// much better any-word fallback
 		"restrictSearchableAttributes": {"title"},
 	}
-	if anyWord {
+	switch step {
+	case exactWords:
+		q.Set("typoTolerance", "false")
+	case anyWords:
 		q.Set("optionalWords", query)
+	}
+	if opt.Since > 0 {
+		q.Set("numericFilters", "created_at_i>"+strconv.FormatInt(opt.Since, 10))
+	}
+	// any-word matches come from the relevance endpoint even when sorting by
+	// date: by date, a story sharing one common word would rank with one
+	// sharing them all. Search sorts the relevant ones by date afterwards.
+	endpoint := "/search?"
+	if opt.ByDate && step != anyWords {
+		endpoint = "/search_by_date?"
 	}
 	var res struct {
 		Hits []algoliaHit `json:"hits"`
 	}
-	if err := c.getJSON(ctx, c.AlgoliaURL+"/search?"+q.Encode(), &res); err != nil {
+	if err := c.getJSON(ctx, c.AlgoliaURL+endpoint+q.Encode(), &res); err != nil {
 		return nil, err
 	}
 	items := make([]Item, 0, len(res.Hits))
@@ -83,6 +160,11 @@ func (c *Client) algoliaSearch(ctx context.Context, query string, anyWord bool) 
 			continue
 		}
 		it := Item{ID: id, Type: "story", By: h.Author, Time: h.CreatedAtI, Title: *h.Title}
+		for _, t := range h.Tags {
+			if t == "job" || t == "poll" {
+				it.Type = t
+			}
+		}
 		if h.URL != nil {
 			it.URL = *h.URL
 		}
@@ -97,6 +179,48 @@ func (c *Client) algoliaSearch(ctx context.Context, query string, anyWord bool) 
 		items = append(items, it)
 	}
 	return items, nil
+}
+
+// mergeByDate combines two result lists without duplicates, newest first.
+func mergeByDate(a, b []Item) []Item {
+	seen := make(map[int]bool, len(a)+len(b))
+	var out []Item
+	for _, it := range append(append([]Item{}, a...), b...) {
+		if !seen[it.ID] {
+			seen[it.ID] = true
+			out = append(out, it)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Time > out[j].Time })
+	return out[:min(len(out), searchHits)]
+}
+
+// filterLocal applies search options to loaded items, for the offline fallback.
+func filterLocal(items []Item, opt SearchOptions) []Item {
+	var out []Item
+	for _, it := range items {
+		if opt.Since > 0 && it.Time <= opt.Since {
+			continue
+		}
+		title := strings.ToLower(it.Title)
+		ok := true
+		switch opt.tag() {
+		case "ask_hn":
+			ok = strings.HasPrefix(title, "ask hn")
+		case "show_hn":
+			ok = strings.HasPrefix(title, "show hn")
+		case "launch_hn":
+			ok = strings.HasPrefix(title, "launch hn")
+		case "job", "poll":
+			ok = it.Type == opt.tag()
+		default:
+			ok = it.Type == "story"
+		}
+		if ok {
+			out = append(out, it)
+		}
+	}
+	return out
 }
 
 // cachedStories lists the stories in the item cache, newest first.

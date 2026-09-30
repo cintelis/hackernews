@@ -28,7 +28,9 @@ var (
 	moving = []app.Mode{app.ModeList, app.ModeDetail, app.ModeLinks}
 	all    = []app.Mode{app.ModeList, app.ModeDetail, app.ModeError, app.ModeLinks, app.ModeHelp}
 	search = []app.Mode{app.ModeSearch}
-	every  = []app.Mode{app.ModeList, app.ModeDetail, app.ModeError, app.ModeLinks, app.ModeHelp, app.ModeSearch}
+	// the filter keys also work on the results (the app ignores them on other tabs)
+	searchish = []app.Mode{app.ModeSearch, app.ModeList}
+	every     = []app.Mode{app.ModeList, app.ModeDetail, app.ModeError, app.ModeLinks, app.ModeHelp, app.ModeSearch}
 )
 
 var Bindings = []Binding{
@@ -72,6 +74,11 @@ var Bindings = []Binding{
 	{search, []string{"backspace"}, app.CmdDeleteChar, "backspace", "delete a character", ""},
 	{search, []string{"ctrl+u"}, app.CmdClearInput, "ctrl+u", "clear the search", "ctrl+u clear"},
 	{search, []string{"esc"}, app.CmdBack, "esc", "stop typing", "esc done"},
+
+	// search filters: while typing, and on the results
+	{searchish, []string{"ctrl+t"}, app.CmdSearchType, "ctrl+t", "search: stories / Ask HN / Show HN / Launch HN / jobs / polls", ""},
+	{searchish, []string{"ctrl+o"}, app.CmdSearchOrder, "ctrl+o", "search: by date / by popularity", ""},
+	{searchish, []string{"ctrl+r"}, app.CmdSearchRange, "ctrl+r", "search: past year / all time / 24h / week / month", ""},
 
 	{[]app.Mode{app.ModeLinks}, []string{"enter"}, app.CmdOpen, "⏎", "open link", "⏎ open"},
 	{[]app.Mode{app.ModeLinks}, []string{"o"}, app.CmdOpenURL, "o", "open in browser", "o browser"},

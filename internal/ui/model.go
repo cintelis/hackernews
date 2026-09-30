@@ -177,7 +177,7 @@ func (m *Model) run(e app.Effect) tea.Cmd {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
 			defer cancel()
-			items, kind, err := client.Search(ctx, e.Query)
+			items, kind, err := client.Search(ctx, e.Query, e.Options)
 			return app.SearchLoaded{Gen: e.Gen, Query: e.Query, Items: items, Kind: kind, Err: err}
 		}
 	case app.ResolveLink:

@@ -68,10 +68,21 @@ Press `?` for every key. The essentials:
 | `t`, `q` | theme, quit | same |
 
 **Search** (`/`) looks through every story title on Hacker News as you type,
-and tolerates typos ("kubernets" finds Kubernetes). If no title has all your
-words, it shows the closest matches instead, and if Hacker News search can't
-be reached it fuzzy-matches the stories you've already loaded. `⏎` or `↓`
-moves into the results, `esc` stops typing.
+and tolerates typos ("kubernets" finds Kubernetes). Like hn.algolia.com, it
+reads *Search Stories by Date for Past year*, and those are the defaults:
+
+| Key | Filter | Options |
+| --- | --- | --- |
+| `ctrl+t` | type | Stories, Ask HN, Show HN, Launch HN, Jobs, Polls |
+| `ctrl+o` | order | by Date (newest first), by Popularity |
+| `ctrl+r` | range | Past year, All time, Last 24h, Past week, Past month |
+
+The filter keys work while typing and on the results. Change any filter and
+an empty search browses: *Show HN by Popularity for Past week* is that week's
+top Show HN posts. If no title has all your words, the closest matches are
+shown instead; if Hacker News search can't be reached, the stories you've
+already loaded are fuzzy-matched. `⏎` or `↓` moves into the results, `esc`
+stops typing.
 
 In a thread, `n` switches to **newest first**: every comment in one list,
 latest on top, each marked with who it replies to. The cursor lands on the
