@@ -20,6 +20,14 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 pub="$root/internal/update/release_key.pub"
 
 [ -f "$key" ] || { echo "no private key at $key" >&2; exit 1; }
+# the release-table PR at the end is pushed with gh's active account: check
+# it can write here before anything is signed or published
+who=$(gh api user --jq .login)
+if [ "$(gh api "repos/$REPO" --jq .permissions.push)" != "true" ]; then
+  echo "gh is logged in as $who, which can't push to $REPO." >&2
+  echo "Switch to an account that can: gh auth switch --user <account>" >&2
+  exit 1
+fi
 if [ "$(gh release view "$tag" -R "$REPO" --json isDraft --jq .isDraft)" != "true" ]; then
   echo "$tag is not a draft release (already published, or not built yet)" >&2
   exit 1
