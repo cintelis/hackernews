@@ -62,3 +62,18 @@ func TestLiveFrames(t *testing.T) {
 		t.Fatal("help didn't open")
 	}
 }
+
+func TestLiveSearchFrame(t *testing.T) {
+	m := newModel(t, 100, 20)
+	settle(m, m.runAll(m.s.Start()))
+	key(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	for _, r := range "sqlite wal mode performence" {
+		k := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}}
+		if r == ' ' {
+			k.Type = tea.KeySpace
+		}
+		_, c := m.Update(k)
+		settle(m, []tea.Cmd{c})
+	}
+	fmt.Println(ansi.Strip(checkFrame(t, m)))
+}

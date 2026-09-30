@@ -27,10 +27,13 @@ var (
 	detail = []app.Mode{app.ModeDetail}
 	moving = []app.Mode{app.ModeList, app.ModeDetail, app.ModeLinks}
 	all    = []app.Mode{app.ModeList, app.ModeDetail, app.ModeError, app.ModeLinks, app.ModeHelp}
+	search = []app.Mode{app.ModeSearch}
+	every  = []app.Mode{app.ModeList, app.ModeDetail, app.ModeError, app.ModeLinks, app.ModeHelp, app.ModeSearch}
 )
 
 var Bindings = []Binding{
-	{all, []string{"q", "ctrl+c"}, app.CmdQuit, "q", "quit", "q quit"},
+	{all, []string{"q"}, app.CmdQuit, "q", "quit", "q quit"}, // not while typing a search
+	{every, []string{"ctrl+c"}, app.CmdQuit, "", "", ""},
 	{moving, []string{"j", "down"}, app.CmdDown, "j k ↑ ↓", "down / up", "j/k move"},
 	{moving, []string{"k", "up"}, app.CmdUp, "", "", ""},
 	{moving, []string{"g g", "home"}, app.CmdTop, "g g / G", "first / last", ""},
@@ -50,6 +53,7 @@ var Bindings = []Binding{
 	{list, []string{"x"}, app.CmdClearHistory, "x", "forget history (History tab)", ""},
 
 	{detail, []string{" "}, app.CmdCollapse, "space", "fold / unfold replies", "space fold"},
+	{detail, []string{"n"}, app.CmdSortNewest, "n", "newest comments first / ranked", "n newest"},
 	{detail, []string{"enter"}, app.CmdLinks, "⏎", "list this comment's links", "⏎ links"},
 
 	{browse, []string{"o"}, app.CmdOpenURL, "o", "open the story's link", ""},
@@ -60,7 +64,14 @@ var Bindings = []Binding{
 	{browse, []string{"H"}, app.CmdHistoryView, "H", "reading history", ""},
 	{browse, []string{"t"}, app.CmdTheme, "t", "switch theme", ""},
 	{[]app.Mode{app.ModeDetail, app.ModeError}, []string{"esc", "backspace", "h", "left"}, app.CmdBack, "h / esc", "back", "h/esc back"},
+	{browse, []string{"/"}, app.CmdSearch, "/", "search all of Hacker News", "/ search"},
 	{browse, []string{"?"}, app.CmdHelp, "?", "show keys", ""},
+
+	// while typing in the search box every other key is text
+	{search, []string{"enter", "down"}, app.CmdOpen, "⏎ / ↓", "go to the results", "⏎ results"},
+	{search, []string{"backspace"}, app.CmdDeleteChar, "backspace", "delete a character", ""},
+	{search, []string{"ctrl+u"}, app.CmdClearInput, "ctrl+u", "clear the search", "ctrl+u clear"},
+	{search, []string{"esc"}, app.CmdBack, "esc", "stop typing", "esc done"},
 
 	{[]app.Mode{app.ModeLinks}, []string{"enter"}, app.CmdOpen, "⏎", "open link", "⏎ open"},
 	{[]app.Mode{app.ModeLinks}, []string{"o"}, app.CmdOpenURL, "o", "open in browser", "o browser"},
@@ -142,7 +153,11 @@ func Hints(mode app.Mode) string {
 			parts = append(parts, b.Hint)
 		}
 	}
-	return strings.Join(append(parts, "q quit"), " · ")
+	quit := "q quit"
+	if mode == app.ModeSearch {
+		quit = "ctrl+c quit"
+	}
+	return strings.Join(append(parts, quit), " · ")
 }
 
 func has[T comparable](xs []T, x T) bool {

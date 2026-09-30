@@ -55,3 +55,24 @@ func TestLive(t *testing.T) {
 		t.Fatalf("missing item: %v", err)
 	}
 }
+
+func TestLiveSearch(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	c := NewClient()
+	for _, tc := range []struct {
+		q    string
+		kind SearchKind
+	}{
+		{"kubernets", SearchMatched},                        // typo
+		{"kube", SearchMatched},                             // prefix
+		{"rust borrow checker zebra banana", SearchAnyWord}, // no story has every word
+		{"sqlite wal mode performence", SearchAnyWord},      // typo + a word no title has
+	} {
+		items, kind, err := c.Search(ctx, tc.q)
+		if err != nil || kind != tc.kind || len(items) == 0 {
+			t.Fatalf("%q: %d items, kind %v, err %v", tc.q, len(items), kind, err)
+		}
+		t.Logf("%q (kind %d): %q", tc.q, kind, items[0].Title)
+	}
+}

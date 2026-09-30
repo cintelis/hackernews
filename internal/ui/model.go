@@ -6,6 +6,7 @@ package ui
 import (
 	"context"
 	"os"
+	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,6 +23,7 @@ const (
 	headerHeight = 3
 	statusHeight = 2
 	fetchTimeout = 45 * time.Second
+	searchDelay  = 200 * time.Millisecond // typing pause before a search goes out
 )
 
 type spinTick struct{}
@@ -38,6 +40,8 @@ type Model struct {
 	detailTop     int // first visible line of the detail view
 	spin          int
 	spinning      bool
+
+	latestSearch atomic.Int64 // gen of the newest search asked for
 
 	wrapWidth int
 	wraps     map[int][]string // comment id (story title/text: negative keys) → wrapped lines at wrapWidth
@@ -60,8 +64,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		body := m.bodyHeight()
 		return m, m.dispatch(app.Resized{ListPage: body / 2, DetailPage: body / 4})
 	case tea.KeyMsg:
-		if c := m.keys.Resolve(m.s.Mode(), msg.String(), time.Now()); c != app.CmdNone {
+		mode := m.s.Mode()
+		if c := m.keys.Resolve(mode, msg.String(), time.Now()); c != app.CmdNone {
 			return m, m.dispatch(c)
+		}
+		if mode == app.ModeSearch {
+			switch msg.Type {
+			case tea.KeyRunes:
+				return m, m.dispatch(app.Typed{Text: string(msg.Runes)})
+			case tea.KeySpace:
+				return m, m.dispatch(app.Typed{Text: " "})
+			}
 		}
 	case tea.MouseMsg:
 		if msg.Action == tea.MouseActionPress && m.s.Mode() != app.ModeHelp {
@@ -78,7 +91,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tickSpinner()
 		}
 		m.spinning = false
-	case app.FeedLoaded, app.ItemsLoaded, app.ThreadLoaded, app.Resolved, app.UpdateFound, app.Flash:
+	case app.FeedLoaded, app.ItemsLoaded, app.ThreadLoaded, app.Resolved, app.UpdateFound, app.Flash, app.SearchLoaded:
 		return m, m.dispatch(msg)
 	}
 	return m, nil
@@ -144,12 +157,28 @@ func (m *Model) run(e app.Effect) tea.Cmd {
 			var refreshed *hn.Item
 			if e.Refresh {
 				client.Invalidate(story.ID)
+			}
+			// search hits don't carry kids, which rank the thread: fetch the story
+			if e.Refresh || len(story.Kids) == 0 && story.Descendants > 0 {
 				if it, err := client.Item(ctx, story.ID); err == nil {
 					story, refreshed = it, &it
 				}
 			}
 			tree, err := client.Thread(ctx, story)
 			return app.ThreadLoaded{Gen: e.Gen, Story: refreshed, Tree: tree, Err: err}
+		}
+	case app.RunSearch:
+		m.latestSearch.Store(int64(e.Gen))
+		latest := &m.latestSearch
+		return func() tea.Msg {
+			time.Sleep(searchDelay)
+			if latest.Load() != int64(e.Gen) {
+				return nil // typed more since: a newer search replaces this one
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
+			defer cancel()
+			items, kind, err := client.Search(ctx, e.Query)
+			return app.SearchLoaded{Gen: e.Gen, Query: e.Query, Items: items, Kind: kind, Err: err}
 		}
 	case app.ResolveLink:
 		return func() tea.Msg {

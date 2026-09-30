@@ -9,7 +9,7 @@ import (
 	"github.com/cintelis/hackernews/internal/store"
 )
 
-// Category is a tab: the six HN feeds plus the local History and Saved lists.
+// Category is a tab: the six HN feeds, the local History and Saved lists, and Search.
 type Category int
 
 const (
@@ -21,12 +21,13 @@ const (
 	CatJobs
 	CatHistory
 	CatSaved
+	CatSearch
 )
 
-var Categories = []Category{CatTop, CatNew, CatBest, CatAsk, CatShow, CatJobs, CatHistory, CatSaved}
+var Categories = []Category{CatTop, CatNew, CatBest, CatAsk, CatShow, CatJobs, CatHistory, CatSaved, CatSearch}
 
 var (
-	categoryLabels = [...]string{"Top", "New", "Best", "Ask", "Show", "Jobs", "History", "Saved"}
+	categoryLabels = [...]string{"Top", "New", "Best", "Ask", "Show", "Jobs", "History", "Saved", "Search"}
 	categoryFeeds  = [...]string{"top", "new", "best", "ask", "show", "job"}
 )
 
@@ -50,6 +51,7 @@ const (
 	ModeError
 	ModeLinks
 	ModeHelp
+	ModeSearch // typing a search query
 )
 
 // Command is a user intent, produced by the keymap.
@@ -85,6 +87,10 @@ const (
 	CmdHelp
 	CmdTheme
 	CmdQuit
+	CmdSearch     // open search and start typing
+	CmdDeleteChar // backspace in the search box
+	CmdClearInput // empty the search box
+	CmdSortNewest // switch a thread between ranked and newest-first
 )
 
 // Action is anything Update accepts: a Command or one of the result types below.
@@ -113,9 +119,17 @@ type (
 		Focus int
 		Err   error
 	}
-	UpdateFound struct{ Version string }
-	Resized     struct{ ListPage, DetailPage int }
-	Flash       struct{ Text string }
+	UpdateFound  struct{ Version string }
+	Resized      struct{ ListPage, DetailPage int }
+	Flash        struct{ Text string }
+	Typed        struct{ Text string } // characters typed into the search box
+	SearchLoaded struct {
+		Gen   int
+		Query string
+		Items []hn.Item
+		Kind  hn.SearchKind
+		Err   error
+	}
 )
 
 // Effect is work for the UI layer to perform.
@@ -145,4 +159,8 @@ type (
 	SaveSaved   struct{ Entries []store.Entry }
 	SaveHistory struct{ Entries []store.Entry }
 	Quit        struct{}
+	RunSearch   struct {
+		Gen   int
+		Query string
+	}
 )

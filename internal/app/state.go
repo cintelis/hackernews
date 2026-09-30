@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"sort"
 	"time"
 
 	"github.com/cintelis/hackernews/internal/hn"
@@ -49,7 +50,8 @@ type Detail struct {
 	Collapsed map[int]bool
 	Loading   bool
 	Err       error
-	focus     int // comment to land on once the thread loads
+	focus     int  // comment to land on once the thread loads
+	newest    bool // Flat is in newest-first order
 	gen       int
 }
 
@@ -61,7 +63,27 @@ func (d *Detail) Current() *hn.Comment {
 	return nil
 }
 
-func (d *Detail) reflatten() { d.Flat = Flatten(d.Tree, d.Collapsed) }
+func (d *Detail) reflatten(newest bool) {
+	d.newest = newest
+	if newest {
+		d.Flat = FlattenNewest(d.Tree)
+	} else {
+		d.Flat = Flatten(d.Tree, d.Collapsed)
+	}
+}
+
+// resort switches order, keeping the cursor on the same comment when it's
+// still visible.
+func (d *Detail) resort(newest bool) {
+	cur := d.Current()
+	d.reflatten(newest)
+	d.Cursor = 0
+	if cur != nil {
+		if i := d.indexOf(cur.ID); i >= 0 {
+			d.Cursor = i
+		}
+	}
+}
 
 func (d *Detail) indexOf(id int) int {
 	for i, f := range d.Flat {
@@ -70,6 +92,14 @@ func (d *Detail) indexOf(id int) int {
 		}
 	}
 	return -1
+}
+
+// Search is the search box and what the shown results were found by.
+type Search struct {
+	Query   string
+	Editing bool          // keys go to the box, not the keymap
+	Shown   string        // the query the listed results belong to
+	Kind    hn.SearchKind // how they were found
 }
 
 type LinksPopup struct {
@@ -89,9 +119,11 @@ type State struct {
 	ResolveRef hn.ItemRef
 	ResolveErr error
 
-	Links *LinksPopup
-	Help  bool
-	Light bool
+	Links  *LinksPopup
+	Newest bool // threads list comments newest first (a session-wide switch)
+	Help   bool
+	Search Search
+	Light  bool
 
 	Saved   []store.Entry
 	History []store.Entry
@@ -103,6 +135,8 @@ type State struct {
 	DetailPage int // rough number of comments that fit on screen
 
 	Now func() time.Time
+
+	prevCategory Category // where esc leaves the Search tab to
 
 	savedSet   map[int]bool
 	viewedSet  map[int]bool
@@ -126,6 +160,8 @@ func (s *State) Mode() Mode {
 		return ModeHelp
 	case s.Links != nil:
 		return ModeLinks
+	case s.Screen == ScreenList && s.Category == CatSearch && s.Search.Editing:
+		return ModeSearch
 	case s.Screen == ScreenDetail:
 		return ModeDetail
 	case s.Screen == ScreenError:
@@ -168,7 +204,39 @@ func (s *State) gen() int {
 type Flat struct {
 	Comment *hn.Comment
 	Depth   int
-	Hidden  int // replies hidden because this comment is collapsed
+	Hidden  int    // replies hidden because this comment is collapsed
+	ReplyTo string // newest-first only: who this answers ("" for top-level)
+}
+
+// FlattenNewest lists every comment newest first, as one flat list: the
+// thread's latest activity on top, wherever in the tree it happened.
+func FlattenNewest(tree []*hn.Comment) []Flat {
+	var out []Flat
+	var walk func(nodes []*hn.Comment, parent *hn.Comment)
+	walk = func(nodes []*hn.Comment, parent *hn.Comment) {
+		for _, c := range nodes {
+			if !c.Deleted { // deleted placeholders only hold the tree's shape
+				f := Flat{Comment: c}
+				if parent != nil {
+					f.ReplyTo = parent.By
+					if parent.Deleted {
+						f.ReplyTo = "[deleted]"
+					}
+				}
+				out = append(out, f)
+			}
+			walk(c.Children, c)
+		}
+	}
+	walk(tree, nil)
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := out[i].Comment, out[j].Comment
+		if a.Time != b.Time {
+			return a.Time > b.Time
+		}
+		return a.ID > b.ID // ids grow over time: a tiebreak that stays newest-first
+	})
+	return out
 }
 
 // Flatten lists the visible comments depth-first; a collapsed comment's

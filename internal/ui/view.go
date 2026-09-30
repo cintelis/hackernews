@@ -96,13 +96,13 @@ func centered(w int, bg lipgloss.Color, s string, fg lipgloss.Color, bold bool) 
 func (m *Model) header(t Theme) []string {
 	w := m.width
 	// the Y tile has its own background, so it's rendered apart from the strip
-	tile := lipgloss.NewStyle().Foreground(t.BrandFg).Background(t.BrandBg).Bold(true).Render(" Y ")
-	brand := []seg{{" Hacker News", t.Brand, true}, {" · terminal reader", t.BrandSubtle, false}}
+	tile := lipgloss.NewStyle().Foreground(t.BrandFg).Background(t.BrandBg).Bold(true).Render(" CA ")
+	brand := []seg{{" CISO", t.Brand, true}, {" AI", t.BrandAccent, true}, {"  ·  Hacker News", t.BrandSubtle, false}}
 	var right []seg
 	if d := len(m.s.Stack); d > 0 && m.s.Screen != app.ScreenList {
 		right = append(right, seg{fmt.Sprintf("‹ %d back ", d), t.BrandSubtle, false})
 	}
-	first := line(1, t.Strip) + tile + split(w-4, t.Strip, brand, right)
+	first := line(1, t.Strip) + tile + split(w-5, t.Strip, brand, right)
 
 	var second string
 	if m.s.Screen == app.ScreenList {
@@ -155,7 +155,9 @@ func (m *Model) status(t Theme) []string {
 
 func (m *Model) listBody(t Theme, h int) []string {
 	l := &m.s.List
-	w := m.width
+	if m.s.Category == app.CatSearch {
+		return m.searchBody(t, h)
+	}
 	if len(l.Items) == 0 {
 		switch {
 		case l.Err != nil:
@@ -169,7 +171,13 @@ func (m *Model) listBody(t Theme, h int) []string {
 		}
 		return m.message(t, h, "This feed is empty", "", "")
 	}
+	return m.storyRows(t, h)
+}
 
+// storyRows renders the list's stories into h lines, scrolled to the cursor.
+func (m *Model) storyRows(t Theme, h int) []string {
+	l := &m.s.List
+	w := m.width
 	rows := max(1, h/2)
 	if l.Cursor < m.listTop {
 		m.listTop = l.Cursor
@@ -189,6 +197,58 @@ func (m *Model) listBody(t Theme, h int) []string {
 	return out
 }
 
+// searchBody is the Search tab: the query box, how the results were found,
+// then the results as an ordinary story list.
+func (m *Model) searchBody(t Theme, h int) []string {
+	w := m.width
+	q := m.s.Search
+	l := &m.s.List
+
+	boxBg := t.Strip
+	if q.Editing {
+		boxBg = t.Highlight
+	}
+	box := []seg{{" / ", t.Accent, true}, {q.Query, t.Text, true}}
+	if q.Editing {
+		box = append(box, seg{"▏", t.Accent, false})
+	}
+	if q.Query == "" {
+		box = append(box, seg{"search Hacker News…", t.TextDim, false})
+	}
+	out := []string{line(w, boxBg, box...), line(w, t.Body, m.searchInfo(t)...), line(w, t.Body)}
+	rest := max(1, h-len(out))
+
+	switch {
+	case strings.TrimSpace(q.Query) == "":
+		return append(out, m.message(t, rest, "Search every story on Hacker News",
+			"Typos are fine. If no story has all your words, the closest ones are shown.",
+			"type, then ⏎ or ↓ to browse the results")...)
+	case len(l.Items) > 0:
+		return append(out, m.storyRows(t, rest)...)
+	case l.Loading:
+		return append(out, m.message(t, rest, "Searching…", "", "")...)
+	case l.Err != nil:
+		return append(out, m.message(t, rest, "Search didn't work", errorText(l.Err), "r to try again")...)
+	}
+	return append(out, m.message(t, rest, "Nothing found",
+		"Nothing on Hacker News matches, and no story loaded here comes close.", "try other words")...)
+}
+
+func (m *Model) searchInfo(t Theme) []seg {
+	q := m.s.Search
+	n := len(m.s.List.Items)
+	if q.Shown == "" || n == 0 {
+		return nil
+	}
+	switch q.Kind {
+	case hn.SearchAnyWord:
+		return []seg{{fmt.Sprintf(" No story has every word of “%s” — %d closest matches", q.Shown, n), t.Accent, false}}
+	case hn.SearchLoaded:
+		return []seg{{fmt.Sprintf(" Hacker News search found nothing (or is unreachable) — %d fuzzy matches for “%s” among stories loaded here", n, q.Shown), t.Accent, false}}
+	}
+	return []seg{{fmt.Sprintf(" %s matching “%s”", plural(n, "story"), q.Shown), t.TextMuted, false}}
+}
+
 func (m *Model) storyRow(t Theme, i, w int) []string {
 	it := m.s.List.Items[i]
 	sel := i == m.s.List.Cursor
@@ -197,7 +257,7 @@ func (m *Model) storyRow(t Theme, i, w int) []string {
 	if sel {
 		bg = t.Highlight
 	}
-	titleFg, rankFg, dim, muted, vote := t.TextBody, t.TextDim, t.TextDim, t.TextMuted, t.Accent
+	titleFg, rankFg, dim, muted, vote := t.TextBody, t.TextDim, t.TextDim, t.TextMuted, t.Score
 	if sel {
 		titleFg, rankFg = t.Text, t.Accent
 	}
@@ -223,7 +283,7 @@ func (m *Model) storyRow(t Theme, i, w int) []string {
 	}
 	second := []seg{
 		{"      ", "", false},
-		{fmt.Sprintf("%d pts", it.Score), vote, false},
+		{plural(it.Score, "pt"), vote, false},
 		{" · ", dim, false}, {by, muted, false},
 		{" · " + relativeTime(it.Time) + " · ", dim, false},
 		{comments, muted, false},
@@ -306,10 +366,11 @@ func (m *Model) storyHeader(t Theme, d *app.Detail, w int) []string {
 		saved = "  ★ saved"
 	}
 	out = append(out, line(w, t.Body,
-		seg{fmt.Sprintf(" %d pts", s.Score), t.Accent, false},
+		seg{" " + plural(s.Score, "pt"), t.Score, false},
 		seg{" · ", t.TextDim, false}, seg{by, t.TextMuted, false},
 		seg{" · " + relativeTime(s.Time) + " · " + plural(s.Descendants, "comment"), t.TextDim, false},
 		seg{saved, t.Accent, false},
+		seg{sortNote(m.s.Newest), t.Accent, false},
 	))
 	if s.Text != "" {
 		text, _ := hn.RenderHTML(s.Text)
@@ -367,6 +428,9 @@ func (m *Model) comment(t Theme, f app.Flat, sel bool, w int) []string {
 	} else {
 		head = append(head, seg{c.By, t.Accent, true}, seg{" · " + relativeTime(c.Time), t.TextDim, false})
 	}
+	if f.ReplyTo != "" {
+		head = append(head, seg{" · ↳ " + f.ReplyTo, t.TextMuted, false})
+	}
 	if f.Hidden > 0 {
 		head = append(head, seg{fmt.Sprintf(" · %s folded", plural(f.Hidden, "reply")), t.TextMuted, false})
 	} else if n := len(c.Links); n > 0 {
@@ -379,6 +443,13 @@ func (m *Model) comment(t Theme, f app.Flat, sel bool, w int) []string {
 		}
 	}
 	return append(out, line(w, t.Body))
+}
+
+func sortNote(newest bool) string {
+	if newest {
+		return "  · newest first (n)"
+	}
+	return ""
 }
 
 func (m *Model) wrap(key int, text string, width int) []string {

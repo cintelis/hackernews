@@ -2,6 +2,7 @@ package app
 
 import (
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -323,5 +324,210 @@ func TestCategoryCycling(t *testing.T) {
 	}
 	if f := must[FetchFeed](t, s.Update(CmdCategory6)); f.Feed != "job" {
 		t.Fatalf("6 = %q", f.Feed)
+	}
+}
+
+func typeText(s *State, text string) []Effect {
+	var effs []Effect
+	for _, r := range text {
+		effs = s.Update(Typed{Text: string(r)})
+	}
+	return effs
+}
+
+func TestSearchFlow(t *testing.T) {
+	s := loaded(t, 3, 3)
+	if eff := s.Update(CmdSearch); len(eff) != 0 || s.Mode() != ModeSearch || s.Category != CatSearch {
+		t.Fatalf("/ should open an empty search box: mode %v eff %v", s.Mode(), eff)
+	}
+	// typing: every change asks again; only the latest answer counts
+	first := must[RunSearch](t, s.Update(Typed{Text: "r"}))
+	req := must[RunSearch](t, typeText(s, "ust"))
+	if req.Query != "rust" {
+		t.Fatalf("query = %q", req.Query)
+	}
+	s.Update(SearchLoaded{Gen: first.Gen, Query: "r", Items: stories(90, 5)})
+	if len(s.List.Items) != 0 {
+		t.Fatal("a stale answer was shown")
+	}
+	s.Update(SearchLoaded{Gen: req.Gen, Query: "rust", Items: stories(50, 2), Kind: hn.SearchAnyWord})
+	if len(s.List.Items) != 2 || s.Search.Kind != hn.SearchAnyWord || s.Busy() {
+		t.Fatalf("results %d kind %v", len(s.List.Items), s.Search.Kind)
+	}
+	if eff := s.Update(Typed{Text: " "}); len(eff) != 0 {
+		t.Fatal("a trailing space shouldn't search again")
+	}
+
+	// q while typing is text, not quit (the keymap sends it as Typed)
+	s.Update(Typed{Text: "q"})
+	if s.Search.Query != "rust q" {
+		t.Fatalf("query = %q", s.Search.Query)
+	}
+	s.Update(CmdDeleteChar)
+	s.Update(CmdDeleteChar)
+
+	// ⏎ goes to the results; they behave like any list
+	s.Update(CmdOpen)
+	if s.Mode() != ModeList {
+		t.Fatal("enter should leave the box")
+	}
+	th := must[FetchThread](t, s.Update(CmdOpen))
+	if th.Story.ID != 50 {
+		t.Fatalf("opened %d", th.Story.ID)
+	}
+	s.Update(CmdBack)
+	if s.Category != CatSearch || len(s.List.Items) != 2 {
+		t.Fatal("back from a result should return to the results")
+	}
+
+	// / from a thread returns to the box with the query kept
+	s.Update(CmdOpen)
+	s.Update(CmdSearch)
+	if s.Mode() != ModeSearch || s.Screen != ScreenList || s.Search.Query != "rust" {
+		t.Fatalf("mode %v screen %v query %q", s.Mode(), s.Screen, s.Search.Query)
+	}
+
+	// esc stops typing; esc again leaves Search for the tab you came from
+	s.Update(CmdBack)
+	s.Update(CmdBack)
+	if s.Category != CatTop {
+		t.Fatalf("category = %v", s.Category)
+	}
+}
+
+func TestSearchClearAndEmptyEsc(t *testing.T) {
+	s := newState(t)
+	s.Start()
+	s.Update(CmdNextCategory) // New
+	s.Update(CmdSearch)
+	typeText(s, "go")
+	if eff := s.Update(CmdClearInput); len(eff) != 0 || s.Search.Query != "" || len(s.List.Items) != 0 {
+		t.Fatal("ctrl+u should clear without searching")
+	}
+	s.Update(Typed{Text: "\nx\r"}) // pasted newlines become spaces
+	if s.Search.Query != " x" {    // a newline becomes a space;  is a control char, dropped
+		t.Fatalf("query = %q", s.Search.Query)
+	}
+	s.Update(CmdClearInput)
+	s.Update(CmdBack) // empty box: straight back to New
+	if s.Category != CatNew || s.Mode() != ModeList {
+		t.Fatalf("category %v mode %v", s.Category, s.Mode())
+	}
+}
+
+func TestCyclingSkipsSearch(t *testing.T) {
+	s := newState(t)
+	s.Start()
+	s.Update(CmdSearch)
+	s.Update(Typed{Text: "x"})
+	s.Update(CmdBack) // leave the box, stay on the Search tab
+	s.Update(Typed{Text: "y"})
+	if s.Category != CatSearch || s.Search.Query != "x" {
+		t.Fatal("typing outside the box should do nothing")
+	}
+	s.Update(CmdNextCategory)
+	if s.Category != CatTop {
+		t.Fatalf("next from Search = %v", s.Category)
+	}
+	for range len(Categories) * 2 {
+		s.Update(CmdNextCategory)
+		if s.Category == CatSearch || s.Mode() == ModeSearch {
+			t.Fatal("cycling landed on Search")
+		}
+	}
+}
+
+// a thread where the newest comment is a deep reply in the oldest branch
+func timedTree() []*hn.Comment {
+	return []*hn.Comment{
+		{ID: 1, By: "old", Time: 100, Children: []*hn.Comment{
+			{ID: 2, By: "mid", Time: 200, Children: []*hn.Comment{
+				{ID: 3, By: "latest", Time: 900},
+			}},
+		}},
+		{ID: 4, By: "second", Time: 500},
+		{ID: 5, Deleted: true, Time: 50, Children: []*hn.Comment{{ID: 6, By: "orphan", Time: 600}}},
+	}
+}
+
+func TestFlattenNewest(t *testing.T) {
+	flat := FlattenNewest(timedTree())
+	var ids []int
+	for _, f := range flat {
+		ids = append(ids, f.Comment.ID)
+	}
+	if want := []int{3, 6, 4, 2, 1}; !slices.Equal(ids, want) {
+		t.Fatalf("order = %v, want %v (deleted placeholder dropped)", ids, want)
+	}
+	if flat[0].ReplyTo != "mid" || flat[1].ReplyTo != "[deleted]" || flat[2].ReplyTo != "" || flat[0].Depth != 0 {
+		t.Fatalf("reply context wrong: %+v", flat[:3])
+	}
+}
+
+func TestNewestFirstSwitch(t *testing.T) {
+	s := loaded(t, 2, 2)
+	th := must[FetchThread](t, s.Update(CmdOpen))
+	s.Update(ThreadLoaded{Gen: th.Gen, Tree: timedTree()})
+	if s.Detail.Current().ID != 1 {
+		t.Fatal("ranked order should start on the top comment")
+	}
+
+	s.Update(CmdSortNewest)
+	if !s.Newest || s.Detail.Current().ID != 3 || s.Flash == "" {
+		t.Fatalf("n should jump to the newest comment, on %d", s.Detail.Current().ID)
+	}
+	if s.Update(CmdCollapse); s.Flash == "" || len(s.Detail.Collapsed) != 0 {
+		t.Fatal("folding is a ranked-order thing; newest-first should explain instead")
+	}
+
+	s.Update(CmdDown) // on 6
+	s.Update(CmdSortNewest)
+	if s.Newest || s.Detail.Current().ID != 6 || s.Detail.Flat[s.Detail.Cursor].Depth != 1 {
+		t.Fatal("back to ranked should keep the same comment, now in its thread")
+	}
+
+	// the switch sticks: the next thread opens newest first, on its latest comment
+	s.Update(CmdSortNewest)
+	s.Update(CmdBack)
+	s.Update(CmdDown)
+	th = must[FetchThread](t, s.Update(CmdOpen))
+	s.Update(ThreadLoaded{Gen: th.Gen, Tree: timedTree()})
+	if s.Detail.Current().ID != 3 {
+		t.Fatalf("new thread should open on the latest comment, on %d", s.Detail.Current().ID)
+	}
+
+	// refresh in newest-first lands on whatever is newest now
+	s.Update(CmdDown)
+	r := must[FetchThread](t, s.Update(CmdRefresh))
+	fresh := append(timedTree(), &hn.Comment{ID: 7, By: "brand-new", Time: 1000})
+	s.Update(ThreadLoaded{Gen: r.Gen, Tree: fresh})
+	if s.Detail.Current().ID != 7 {
+		t.Fatalf("refresh should land on the new comment, on %d", s.Detail.Current().ID)
+	}
+}
+
+func TestNewestFirstRespectsLinkFocus(t *testing.T) {
+	s := loaded(t, 1, 1)
+	s.Newest = true
+	s.Update(CmdOpen)
+	s.enterDetail(hn.Item{ID: 77, Kids: []int{1}}, 2) // an in-app link to comment 2
+	s.Update(ThreadLoaded{Gen: s.Detail.gen, Tree: timedTree()})
+	if s.Detail.Current().ID != 2 {
+		t.Fatalf("a linked comment wins over newest-first, on %d", s.Detail.Current().ID)
+	}
+}
+
+func TestStackedThreadFollowsSwitch(t *testing.T) {
+	s := openDetail(t) // ranked, thread 1 from tree()
+	s.Update(CmdBottom)
+	s.Update(CmdLinks)
+	s.Update(CmdDown)
+	r := must[ResolveLink](t, s.Update(CmdOpen))
+	th := must[FetchThread](t, s.Update(Resolved{Gen: r.Gen, Story: hn.Item{ID: 900, Kids: []int{1}}}))
+	s.Update(ThreadLoaded{Gen: th.Gen, Tree: timedTree()})
+	s.Update(CmdSortNewest)
+	s.Update(CmdBack)
+	if !s.Detail.newest || s.Detail.Current().ID != 4 {
+		t.Fatalf("the stacked thread should come back newest-first with its comment kept, on %d", s.Detail.Current().ID)
 	}
 }

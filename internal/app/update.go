@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/cintelis/hackernews/internal/hn"
 	"github.com/cintelis/hackernews/internal/store"
@@ -57,14 +58,16 @@ func (s *State) Update(a Action) []Effect {
 		}
 		d.Err = nil
 		target := d.focus
-		if cur := d.Current(); target == 0 && cur != nil {
+		if cur := d.Current(); target == 0 && cur != nil && !s.Newest {
 			target = cur.ID // a refresh keeps the cursor on the same comment
 		}
 		d.focus = 0
 		d.Tree = a.Tree
-		d.reflatten()
+		d.reflatten(s.Newest)
 		if i := d.indexOf(target); i >= 0 {
 			d.Cursor = i
+		} else if s.Newest {
+			d.Cursor = 0 // newest first: land on the latest comment
 		}
 		d.Cursor = clamp(d.Cursor, len(d.Flat))
 		return nil
@@ -91,6 +94,26 @@ func (s *State) Update(a Action) []Effect {
 		s.ListPage, s.DetailPage = max(1, a.ListPage), max(1, a.DetailPage)
 	case Flash:
 		s.Flash = a.Text
+
+	case Typed:
+		if s.Mode() != ModeSearch {
+			return nil
+		}
+		s.Search.Query += oneLine.Replace(hn.Sanitize(a.Text)) // a paste may carry newlines
+		return s.searchChanged()
+
+	case SearchLoaded:
+		l := &s.List
+		if a.Gen != l.gen {
+			return nil
+		}
+		l.Loading, l.Err, l.Items, l.Cursor = false, a.Err, a.Items, 0
+		l.IDs = make([]int, len(a.Items))
+		for i, it := range a.Items {
+			l.IDs[i] = it.ID
+		}
+		l.Requested = len(l.IDs) // search results come in one page
+		s.Search.Shown, s.Search.Kind = a.Query, a.Kind
 	}
 	return nil
 }
@@ -107,6 +130,8 @@ func (s *State) command(c Command) []Effect {
 		return nil
 	case ModeLinks:
 		return s.linksCommand(c)
+	case ModeSearch:
+		return s.searchCommand(c)
 	}
 
 	switch c {
@@ -120,6 +145,8 @@ func (s *State) command(c Command) []Effect {
 		return s.goHome(CatSaved)
 	case CmdHistoryView:
 		return s.goHome(CatHistory)
+	case CmdSearch:
+		return s.openSearch()
 	case CmdBack:
 		if s.Resolving { // esc while a link resolves cancels just that
 			s.cancelResolve()
@@ -153,12 +180,26 @@ func (s *State) listCommand(c Command) []Effect {
 		if c == CmdPrevCategory {
 			step = -1
 		}
+		// Search is skipped: landing on it starts typing, which would swallow
+		// the next h/l and trap the user there
 		n := len(Categories)
-		return s.switchCategory(Categories[(int(s.Category)+step+n)%n])
+		next := s.Category
+		for {
+			next = Categories[(int(next)+step+n)%n]
+			if next != CatSearch {
+				break
+			}
+		}
+		return s.switchCategory(next)
 	case CmdCategory1, CmdCategory2, CmdCategory3, CmdCategory4, CmdCategory5, CmdCategory6:
 		return s.switchCategory(Category(c - CmdCategory1))
 	case CmdRefresh:
 		return s.loadList(true)
+	case CmdBack:
+		if s.Category == CatSearch {
+			return s.switchCategory(s.prevCategory)
+		}
+		return nil
 	case CmdClearHistory:
 		if s.Category != CatHistory {
 			return nil
@@ -198,10 +239,23 @@ func (s *State) detailCommand(c Command) []Effect {
 	case CmdBack:
 		return s.popView()
 	case CmdCollapse:
+		if s.Newest {
+			s.Flash = "folding works in ranked order — press n to switch"
+			return nil
+		}
 		if cur := d.Current(); cur != nil {
 			// the collapsed comment keeps its row, so the cursor index stays valid
 			d.Collapsed[cur.ID] = !d.Collapsed[cur.ID]
-			d.reflatten()
+			d.reflatten(false)
+		}
+	case CmdSortNewest:
+		s.Newest = !s.Newest
+		d.resort(s.Newest)
+		if s.Newest {
+			d.Cursor = 0 // straight to the latest comment
+			s.Flash = "newest comments first"
+		} else {
+			s.Flash = "ranked order — the comment you were on, in its thread"
 		}
 	case CmdLinks:
 		cur := d.Current()
@@ -261,6 +315,10 @@ func (s *State) linksCommand(c Command) []Effect {
 }
 
 func (s *State) switchCategory(c Category) []Effect {
+	if c == CatSearch && s.Category != CatSearch {
+		s.prevCategory = s.Category
+		s.Search.Editing = true
+	}
 	s.Category = c
 	return s.loadList(false)
 }
@@ -272,6 +330,9 @@ func (s *State) loadList(purge bool) []Effect {
 		s.List.IDs = entryIDs(s.Saved)
 	case CatHistory:
 		s.List.IDs = entryIDs(s.History)
+	case CatSearch:
+		s.Search.Shown = ""
+		return s.searchChanged()
 	default:
 		s.List.Loading = true
 		return []Effect{FetchFeed{Gen: s.List.gen, Feed: s.Category.Feed(), Purge: purge}}
@@ -325,6 +386,9 @@ func (s *State) popView() []Effect {
 	d := s.Stack[len(s.Stack)-1]
 	s.Stack = s.Stack[:len(s.Stack)-1]
 	s.Detail, s.Screen = d, ScreenDetail
+	if d.newest != s.Newest { // the order was switched while it was stacked
+		d.resort(s.Newest)
+	}
 	if d.Loading { // its load finished while it was stacked, and was dropped
 		d.gen = s.gen()
 		return []Effect{FetchThread{Gen: d.gen, Story: d.Story}}
@@ -411,4 +475,56 @@ func entryIDs(es []store.Entry) []int {
 		ids[i] = e.ID
 	}
 	return ids
+}
+
+var oneLine = strings.NewReplacer("\n", " ", "\r", " ")
+
+// openSearch jumps to the Search tab from anywhere and focuses the box,
+// keeping the last query and its results.
+func (s *State) openSearch() []Effect {
+	s.cancelResolve()
+	s.Stack, s.Detail, s.Screen, s.ResolveErr = nil, nil, ScreenList, nil
+	s.Search.Editing = true
+	if s.Category == CatSearch {
+		return nil
+	}
+	return s.switchCategory(CatSearch)
+}
+
+func (s *State) searchCommand(c Command) []Effect {
+	switch c {
+	case CmdBack:
+		s.Search.Editing = false
+		if strings.TrimSpace(s.Search.Query) == "" { // nothing searched: leave the tab
+			return s.switchCategory(s.prevCategory)
+		}
+	case CmdOpen, CmdDown: // into the results
+		s.Search.Editing = false
+	case CmdDeleteChar:
+		if r := []rune(s.Search.Query); len(r) > 0 {
+			s.Search.Query = string(r[:len(r)-1])
+			return s.searchChanged()
+		}
+	case CmdClearInput:
+		s.Search.Query = ""
+		return s.searchChanged()
+	}
+	return nil
+}
+
+// searchChanged asks for results for the current query. The previous
+// results stay listed until the new ones arrive, so typing doesn't flicker.
+func (s *State) searchChanged() []Effect {
+	q := strings.TrimSpace(s.Search.Query)
+	if q == s.Search.Shown && q != "" && !s.List.Loading {
+		return nil // only whitespace changed
+	}
+	s.List.gen = s.gen()
+	if q == "" {
+		s.List = List{gen: s.List.gen}
+		s.Search.Shown = ""
+		return nil
+	}
+	s.List.Loading, s.List.Err = true, nil
+	return []Effect{RunSearch{Gen: s.List.gen, Query: q}}
 }

@@ -6,6 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 
 	"github.com/cintelis/hackernews/internal/app"
 	"github.com/cintelis/hackernews/internal/hn"
@@ -89,5 +91,66 @@ func TestTooSmall(t *testing.T) {
 	m := newModel(t, 20, 5)
 	if !strings.Contains(m.View(), "too small") {
 		t.Fatal("expected too-small notice")
+	}
+}
+
+// With a colour terminal, the brand palette must reach the output: the CA
+// mark on brand cyan, the dark body background.
+func TestBrandColors(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	defer lipgloss.SetColorProfile(termenv.Ascii)
+	out := newModel(t, 80, 24).View()
+	for name, seq := range map[string]string{
+		"CA mark on #00c8ff": "48;2;0;200;255",
+		"body #080b0f":       "48;2;8;11;15",
+	} {
+		if !strings.Contains(out, seq) {
+			t.Errorf("%s missing from the frame", name)
+		}
+	}
+	if !strings.Contains(ansi.Strip(out), "CA  CISO AI") {
+		t.Errorf("brand text missing: %q", strings.SplitN(ansi.Strip(out), "\n", 2)[0])
+	}
+}
+
+func TestRenderSearch(t *testing.T) {
+	m := newModel(t, 80, 24)
+	s := m.s
+	s.Start()
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if out := ansi.Strip(checkFrame(t, m)); !strings.Contains(out, "Search every story") {
+		t.Fatal("empty search screen missing its prompt")
+	}
+	for _, r := range "kubernets" {
+		m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}})
+	if s.Search.Query != "kubernets " {
+		t.Fatalf("typed query = %q", s.Search.Query)
+	}
+	checkFrame(t, m) // searching…
+	m.Update(app.SearchLoaded{Gen: s.ListGenForTest(), Query: "kubernets", Kind: hn.SearchAnyWord,
+		Items: []hn.Item{{ID: 1, Title: "Kubernetes in production", Score: 3}}})
+	out := ansi.Strip(checkFrame(t, m))
+	if !strings.Contains(out, "/ kubernets") || !strings.Contains(out, "closest matches") || !strings.Contains(out, "Kubernetes in production") {
+		t.Fatalf("search frame:\n%s", out)
+	}
+}
+
+func TestRenderNewestFirst(t *testing.T) {
+	m := newModel(t, 80, 24)
+	s := m.s
+	m.Update(app.FeedLoaded{Gen: s.Update(app.CmdRefresh)[0].(app.FetchFeed).Gen, IDs: []int{1}})
+	m.Update(app.ItemsLoaded{Gen: s.ListGenForTest(), Items: []hn.Item{{ID: 1, Title: "t", Descendants: 2}}})
+	m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m.Update(app.ThreadLoaded{Gen: s.DetailGenForTest(), Tree: []*hn.Comment{
+		{ID: 10, By: "pg", Time: 1, Text: "first", Children: []*hn.Comment{{ID: 11, By: "dang", Time: 2, Text: "reply"}}},
+	}})
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	out := ansi.Strip(checkFrame(t, m))
+	for _, want := range []string{"newest first (n)", "dang", "↳ pg", "newest comments first"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
 	}
 }

@@ -2,33 +2,52 @@ package ui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Theme colors. The orange and the light theme's beige are Hacker News's own.
+// Theme colors: the CISO AI brand palette (cisoai-landing's :root tokens).
+// The brand is dark-first; the light theme uses the same accents, deepened
+// for contrast on a pale background.
 type Theme struct {
 	Body, Strip, Border       lipgloss.Color
 	BrandBg, BrandFg, Brand   lipgloss.Color
-	BrandSubtle               lipgloss.Color
+	BrandAccent, BrandSubtle  lipgloss.Color
 	TabActiveBg, TabActiveFg  lipgloss.Color
 	TabFg, Hint               lipgloss.Color
 	Text, TextBody, TextMuted lipgloss.Color
 	TextDim, TextVisited      lipgloss.Color
-	Accent, Link, Highlight   lipgloss.Color
+	Accent, Score, Link       lipgloss.Color
+	Highlight                 lipgloss.Color
 	Depth                     []lipgloss.Color
 }
 
+// brand tokens
+const (
+	bg       = "#080b0f"
+	bg2      = "#0d1117"
+	surface2 = "#182330"
+	border   = "#1e2d3d"
+	accent   = "#00c8ff"
+	accent2  = "#0088bb"
+	accent3  = "#00ff88"
+	warn     = "#ff6b35"
+	text     = "#d7e3ef"
+	text2    = "#97a8bc"
+	text3    = "#60768d"
+	markInk  = "#041219" // text on the hexagon mark
+)
+
 var dark = Theme{
-	Body: "", Strip: "#121212", Border: "#333333",
-	BrandBg: "#ff6600", BrandFg: "#111111", Brand: "#ff7a1a", BrandSubtle: "#8c8c8c",
-	TabActiveBg: "#ff6600", TabActiveFg: "#111111", TabFg: "#bdbdbd", Hint: "#8c8c8c",
-	Text: "#f2f2f2", TextBody: "#d0d0d0", TextMuted: "#a0a0a0", TextDim: "#707070", TextVisited: "#5a5a5a",
-	Accent: "#ff6600", Link: "#6aa9ff", Highlight: "#242424",
-	Depth: []lipgloss.Color{"#ff6600", "#e8b04b", "#6cc98a", "#5fb0e5", "#b38ad6", "#e9788a"},
+	Body: bg, Strip: bg2, Border: border,
+	BrandBg: accent, BrandFg: markInk, Brand: text, BrandAccent: accent, BrandSubtle: text3,
+	TabActiveBg: accent, TabActiveFg: markInk, TabFg: text2, Hint: text3,
+	Text: "#f1f6fb", TextBody: text, TextMuted: text2, TextDim: text3, TextVisited: "#4a5d70",
+	Accent: accent, Score: accent3, Link: "#60a5fa", Highlight: surface2,
+	Depth: []lipgloss.Color{accent, accent3, "#60a5fa", warn, accent2, text2},
 }
 
 var light = Theme{
-	Body: "#f6f6ef", Strip: "#ff6600", Border: "#e05a00",
-	BrandBg: "#ffffff", BrandFg: "#111111", Brand: "#111111", BrandSubtle: "#4a1d00",
-	TabActiveBg: "#ffffff", TabActiveFg: "#111111", TabFg: "#1a1a1a", Hint: "#1a1a1a",
-	Text: "#111111", TextBody: "#1f1f1f", TextMuted: "#444444", TextDim: "#6b6b6b", TextVisited: "#8f8f8f",
-	Accent: "#e65c00", Link: "#1a5fb4", Highlight: "#ffffff",
-	Depth: []lipgloss.Color{"#e65c00", "#a86b00", "#2e7d4f", "#1f6fa8", "#744aa3", "#a8384d"},
+	Body: "#f4f7fb", Strip: "#e6edf5", Border: "#c9d6e3",
+	BrandBg: accent2, BrandFg: "#ffffff", Brand: "#0a1628", BrandAccent: accent2, BrandSubtle: "#52667a",
+	TabActiveBg: accent2, TabActiveFg: "#ffffff", TabFg: "#2c3e50", Hint: "#52667a",
+	Text: "#0a1628", TextBody: "#1c2b3a", TextMuted: "#3d5266", TextDim: "#5f7387", TextVisited: "#8a9aab",
+	Accent: accent2, Score: "#00875a", Link: "#1d4ed8", Highlight: "#ffffff",
+	Depth: []lipgloss.Color{accent2, "#00875a", "#1d4ed8", "#c2410c", "#0e7490", "#52667a"},
 }

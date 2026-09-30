@@ -7,7 +7,7 @@ import (
 	"github.com/cintelis/hackernews/internal/app"
 )
 
-var modes = []app.Mode{app.ModeList, app.ModeDetail, app.ModeError, app.ModeLinks, app.ModeHelp}
+var modes = []app.Mode{app.ModeList, app.ModeDetail, app.ModeError, app.ModeLinks, app.ModeHelp, app.ModeSearch}
 
 // A key bound twice in one mode would silently shadow the later binding.
 func TestNoConflicts(t *testing.T) {
