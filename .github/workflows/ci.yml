@@ -39,6 +39,20 @@ jobs:
       - name: Build
         run: go build ./cmd/cintelis
 
+      # macOS: install the app bundle for real and check it with Apple's tools
+      - name: macOS app bundle
+        if: runner.os == 'macOS'
+        run: |
+          ./cintelis install-app
+          app="$HOME/Applications/CISO AI - Hacker News.app"
+          plutil -lint "$app/Contents/Info.plist"
+          test "$(plutil -extract CFBundleExecutable raw "$app/Contents/Info.plist")" = cintelis-launcher
+          test -x "$app/Contents/MacOS/cintelis-launcher"
+          test -x "$app/Contents/Resources/cintelis.command"
+          sips -g pixelWidth -g pixelHeight "$app/Contents/Resources/AppIcon.icns"
+          ./cintelis install-app  # again: replaces the bundle cleanly
+          ls "$HOME/Applications"
+
       - name: Known vulnerabilities
         if: runner.os == 'Linux'
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
