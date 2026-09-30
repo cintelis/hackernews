@@ -36,6 +36,7 @@ release key; installers and `cintelis update` refuse anything that isn't.
 <!-- releases:start -->
 | Release | Published | Checksums | Signature | Signature check | Build |
 | --- | --- | --- | --- | --- | --- |
+| [v0.2.0](https://github.com/cintelis/hackernews/releases/tag/v0.2.0) | 2026-09-30 | [checksums.txt](https://github.com/cintelis/hackernews/releases/download/v0.2.0/checksums.txt) | [checksums.txt.sig](https://github.com/cintelis/hackernews/releases/download/v0.2.0/checksums.txt.sig) | ✅ release key | [workflow run](https://github.com/cintelis/hackernews/actions/runs/36671233635) |
 | [v0.1.0](https://github.com/cintelis/hackernews/releases/tag/v0.1.0) | 2026-09-30 | [checksums.txt](https://github.com/cintelis/hackernews/releases/download/v0.1.0/checksums.txt) | [checksums.txt.sig](https://github.com/cintelis/hackernews/releases/download/v0.1.0/checksums.txt.sig) | ✅ release key | [workflow run](https://github.com/cintelis/hackernews/actions/runs/36668690310) |
 
 Signature check: `checksums.txt.sig` verified against the release key (`SHA256:RY9yd61LBZCa5WrzSkEet+1Dnt2zVu9zpMRbZMWIV+I`)
