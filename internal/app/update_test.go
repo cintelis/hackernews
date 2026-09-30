@@ -608,3 +608,39 @@ func TestReplyInBrowser(t *testing.T) {
 		t.Fatalf("empty thread opened %q", u.URL)
 	}
 }
+
+func TestCopyKeys(t *testing.T) {
+	s := loaded(t, 2, 2)
+	s.List.Items[0].URL = "https://example.com/a"
+	s.List.Items[0].Title = "A story"
+	if c := must[CopyText](t, s.Update(CmdCopyLink)); c.Text != "https://example.com/a" {
+		t.Fatalf("list Y copied %q", c.Text)
+	}
+	if c := must[CopyText](t, s.Update(CmdCopyText)); c.Text != "A story" {
+		t.Fatalf("list C copied %q", c.Text)
+	}
+	s.Update(CmdDown) // story 2 has no URL: its HN page
+	if c := must[CopyText](t, s.Update(CmdCopyLink)); c.Text != hn.ItemURL(2) {
+		t.Fatalf("link-less story copied %q", c.Text)
+	}
+
+	th := must[FetchThread](t, s.Update(CmdOpen))
+	s.Update(ThreadLoaded{Gen: th.Gen, Tree: []*hn.Comment{{ID: 70, By: "a", Text: "the comment"}}})
+	if c := must[CopyText](t, s.Update(CmdCopyLink)); c.Text != hn.ItemURL(70) {
+		t.Fatalf("thread Y copied %q", c.Text)
+	}
+	if c := must[CopyText](t, s.Update(CmdCopyText)); c.Text != "the comment" || c.What != "comment" {
+		t.Fatalf("thread C copied %+v", c)
+	}
+}
+
+func TestMouseToggle(t *testing.T) {
+	s := loaded(t, 1, 1)
+	if m := must[SetMouse](t, s.Update(CmdToggleMouse)); m.On || !s.MouseOff || s.Flash == "" {
+		t.Fatal("m should hand the mouse to the terminal and say how to select")
+	}
+	s.Update(CmdOpen) // it stays off across screens
+	if m := must[SetMouse](t, s.Update(CmdToggleMouse)); !m.On || s.MouseOff {
+		t.Fatal("m again should take the mouse back")
+	}
+}
