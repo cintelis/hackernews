@@ -1,0 +1,5 @@
+/cintelis
+/cintelis.exe
+/dist/
+*.test
+coverage.out

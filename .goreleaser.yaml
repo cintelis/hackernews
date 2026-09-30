@@ -1,0 +1,35 @@
+# Release builds: `git tag v1.2.3 && git push origin v1.2.3` runs this via
+# .github/workflows/release.yml. Pure Go (CGO off), so every target
+# cross-compiles from one Linux runner.
+version: 2
+project_name: cintelis
+
+builds:
+  - id: cintelis
+    main: ./cmd/cintelis
+    binary: cintelis
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  # names must match update.AssetName and the install scripts
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, README.md]
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude: ["^docs:", "^test:", "^ci:"]
