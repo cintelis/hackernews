@@ -1,10 +1,14 @@
 #!/bin/sh
 # cintelis installer for macOS and Linux: downloads the latest release for this
-# machine, checks it against the release's checksums.txt, and installs it.
+# machine, checks that its checksums.txt is signed with the cintelis release
+# key and that the archive matches it, and installs it. Needs OpenSSH 8.1+
+# (ssh-keygen), which macOS and current Linux distributions ship.
 #   curl -fsSL https://raw.githubusercontent.com/cintelis/hackernews/main/install.sh | sh
 set -eu
 
 REPO="cintelis/hackernews"
+# the release signing key; also in install.ps1 and internal/update/release_key.pub
+RELEASE_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOCB3IaMc3Lc4JvPv6rWCVLpTjmvvPrhFFPST0NSsypP"
 INSTALL_DIR="${CINTELIS_INSTALL_DIR:-$HOME/.local/bin}"
 
 case "$(uname -s)" in
@@ -34,6 +38,18 @@ trap 'rm -rf "$tmp"' EXIT
 echo "downloading cintelis $version ($os/$arch) ..."
 curl -fsSL "$base/$asset" -o "$tmp/$asset"
 curl -fsSL "$base/checksums.txt" -o "$tmp/checksums.txt"
+curl -fsSL "$base/checksums.txt.sig" -o "$tmp/checksums.txt.sig"
+
+if ! command -v ssh-keygen >/dev/null 2>&1; then
+  echo "cintelis: ssh-keygen (OpenSSH 8.1+) is needed to check the release signature" >&2
+  exit 1
+fi
+printf 'cintelis-release namespaces="cintelis-release" %s\n' "$RELEASE_KEY" > "$tmp/allowed_signers"
+if ! ssh-keygen -Y verify -f "$tmp/allowed_signers" -I cintelis-release -n cintelis-release \
+  -s "$tmp/checksums.txt.sig" < "$tmp/checksums.txt" >/dev/null 2>&1; then
+  echo "cintelis: v$version is not signed with the cintelis release key — not installing" >&2
+  exit 1
+fi
 
 want=$(awk -v f="$asset" '$2 == f { print $1 }' "$tmp/checksums.txt")
 if command -v sha256sum >/dev/null 2>&1; then

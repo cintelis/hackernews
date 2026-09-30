@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 3 * * 1" # weekly, so newly published vulnerabilities surface without a push
 
 permissions:
   contents: read
@@ -36,3 +38,7 @@ jobs:
 
       - name: Build
         run: go build ./cmd/cintelis
+
+      - name: Known vulnerabilities
+        if: runner.os == 'Linux'
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...

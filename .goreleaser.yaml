@@ -25,6 +25,12 @@ archives:
         formats: [zip]
     files: [LICENSE, README.md]
 
+# a draft: nothing is installable until the maintainer signs checksums.txt
+# offline and publishes (scripts/sign-release.sh)
+release:
+  draft: true
+  replace_existing_draft: true
+
 checksum:
   name_template: checksums.txt
   algorithm: sha256

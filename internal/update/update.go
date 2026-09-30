@@ -10,6 +10,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -28,6 +29,16 @@ import (
 const Repo = "cintelis/hackernews"
 
 const maxDownload = 200 << 20
+
+// ReleaseKey signs every release's checksums.txt. Its private half is kept
+// offline by the maintainer, never on GitHub (see scripts/sign-release.sh).
+// The same key appears in install.sh and install.ps1; a test keeps them equal.
+//
+//go:embed release_key.pub
+var ReleaseKey string
+
+// SigNamespace scopes the signatures: this key signs nothing else.
+const SigNamespace = "cintelis-release"
 
 var tagRe = regexp.MustCompile(`/tag/v(\d+\.\d+\.\d+)$`)
 
@@ -130,6 +141,15 @@ func install(ctx context.Context, version, exe string) error {
 	sums, err := download(ctx, base+"checksums.txt")
 	if err != nil {
 		return fmt.Errorf("checksums: %w", err)
+	}
+	sig, err := download(ctx, base+"checksums.txt.sig")
+	if err != nil {
+		return fmt.Errorf("release signature: %w", err)
+	}
+	// the signature is what makes the checksums trustworthy: they come from
+	// the same place as the archives, and a forged release forges both
+	if err := VerifySSHSig(ReleaseKey, SigNamespace, sums, sig); err != nil {
+		return fmt.Errorf("v%s isn't signed with the cintelis release key (%v) — not installing it", version, err)
 	}
 	want, err := ChecksumFor(sums, asset)
 	if err != nil {

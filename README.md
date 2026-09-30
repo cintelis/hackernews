@@ -17,16 +17,16 @@ curl -fsSL https://raw.githubusercontent.com/cintelis/hackernews/main/install.sh
 irm https://raw.githubusercontent.com/cintelis/hackernews/main/install.ps1 | iex
 ```
 
-Both scripts install the latest release and refuse it if its SHA-256 doesn't
-match the release's `checksums.txt`. Or, with Go installed:
+Both scripts install the latest release only if its checksums are signed
+with the cintelis release key and the download matches them. Or, with Go installed:
 
 ```sh
 go install github.com/cintelis/hackernews/cmd/cintelis@latest
 ```
 
 Binaries are also on the [releases page](https://github.com/cintelis/hackernews/releases).
-Each release carries a signed build-provenance attestation:
-`gh attestation verify <archive> --repo cintelis/hackernews`.
+See [SECURITY.md](SECURITY.md) to verify one by hand, or to report a
+vulnerability.
 
 ## Use
 
@@ -45,10 +45,24 @@ Press `?` for every key. The essentials:
 | `h` `l` / `tab`, `1`–`6` | switch tab | `h` goes back |
 | `⏎` | open comments | links in the comment |
 | `space` | | collapse / expand |
+| `n` | | newest comments first / ranked |
 | `o` / `y` | open link / HN page in browser | same |
 | `s`, `S`, `H` | save, saved posts, history | same |
 | `r` | refresh | refresh |
+| `/` | search all of Hacker News | same |
 | `t`, `q` | theme, quit | same |
+
+**Search** (`/`) looks through every story title on Hacker News as you type,
+and tolerates typos ("kubernets" finds Kubernetes). If no title has all your
+words, it shows the closest matches instead, and if Hacker News search can't
+be reached it fuzzy-matches the stories you've already loaded. `⏎` or `↓`
+moves into the results, `esc` stops typing.
+
+In a thread, `n` switches to **newest first**: every comment in one list,
+latest on top, each marked with who it replies to. The cursor lands on the
+newest comment, and the switch stays on for the threads you open next; `n`
+again returns to HN's ranked order on the same comment. Points are Hacker
+News's own score for a story (its upvotes); HN doesn't publish comment scores.
 
 Links to other HN posts open inside the app, landing on the linked comment;
 `h`/`esc` walks back through them.
@@ -91,12 +105,18 @@ internal/update/  release check and checksum-verified self-update
 ## Releasing
 
 Tag and push; the release workflow tests, builds all six targets with
-GoReleaser, publishes the archives with `checksums.txt`, and attests them.
+GoReleaser and attests them, as a **draft**. Then sign it with the offline
+release key, which checks the draft's provenance and checksums first and
+publishes it:
 
 ```sh
 git tag v1.0.0
 git push origin v1.0.0
+# once the workflow finishes:
+scripts/sign-release.sh v1.0.0
 ```
+
+Nothing is installable until it's signed.
 
 ## License
 

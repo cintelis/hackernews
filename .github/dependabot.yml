@@ -1,0 +1,18 @@
+# Keeps Go modules and the commit-pinned Actions current; security fixes
+# also arrive as PRs as soon as an advisory is published.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-modules:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
