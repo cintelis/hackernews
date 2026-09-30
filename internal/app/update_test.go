@@ -531,3 +531,54 @@ func TestStackedThreadFollowsSwitch(t *testing.T) {
 		t.Fatalf("the stacked thread should come back newest-first with its comment kept, on %d", s.Detail.Current().ID)
 	}
 }
+
+func TestSearchFilters(t *testing.T) {
+	s := newState(t)
+	s.Start()
+	s.Update(CmdSearch)
+	if s.Search.Type != TypeStories || s.Search.Order != ByDate || s.Search.Range != PastYear || s.Search.Filtered() {
+		t.Fatalf("a search should start as Stories by Date for Past year: %+v", s.Search)
+	}
+	if eff := s.Update(CmdClearInput); len(eff) != 0 {
+		t.Fatal("empty box with default filters shouldn't search")
+	}
+
+	// a query goes out with the default filters: stories, newest first, past year
+	r := must[RunSearch](t, typeText(s, "go"))
+	yearAgo := s.Now().Add(-365 * 24 * time.Hour).Unix()
+	if r.Options.Tag != "story" || !r.Options.ByDate || r.Options.Since != yearAgo {
+		t.Fatalf("options = %+v", r.Options)
+	}
+
+	// each filter key re-runs the search at once
+	r = must[RunSearch](t, s.Update(CmdSearchType))
+	if r.Options.Tag != "ask_hn" || r.Query != "go" {
+		t.Fatalf("type → %+v", r)
+	}
+	r = must[RunSearch](t, s.Update(CmdSearchOrder))
+	if r.Options.ByDate {
+		t.Fatal("order should switch to popularity")
+	}
+	r = must[RunSearch](t, s.Update(CmdSearchRange))
+	if r.Options.Since != 0 {
+		t.Fatalf("range after Past year should be All time, since=%d", r.Options.Since)
+	}
+
+	// changed filters browse without words; esc then stays on Search
+	s.Update(CmdClearInput)
+	if _, ok := find[RunSearch](s.Update(CmdSearchType)); !ok { // Show HN
+		t.Fatal("filtered empty search should browse")
+	}
+	s.Update(CmdBack)
+	if s.Category != CatSearch || s.Mode() != ModeList {
+		t.Fatal("esc with filters set should stop typing, not leave Search")
+	}
+	// the filter keys work on the results too — and nowhere else
+	if _, ok := find[RunSearch](s.Update(CmdSearchRange)); !ok {
+		t.Fatal("filter keys should work on the results list")
+	}
+	s.Update(CmdCategory1)
+	if eff := s.Update(CmdSearchRange); len(eff) != 0 {
+		t.Fatal("filter keys should do nothing on other tabs")
+	}
+}

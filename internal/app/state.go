@@ -100,6 +100,12 @@ type Search struct {
 	Editing bool          // keys go to the box, not the keymap
 	Shown   string        // the query the listed results belong to
 	Kind    hn.SearchKind // how they were found
+
+	Type  SearchType  // filters: what to search,
+	Order SearchOrder // how to sort,
+	Range SearchRange // and how far back
+
+	asked string // key of the last search asked for
 }
 
 type LinksPopup struct {
@@ -146,7 +152,7 @@ type State struct {
 
 // New builds the initial state; Start returns the effects that load it.
 func New(saved, history []store.Entry) *State {
-	s := &State{Saved: saved, History: history, Now: time.Now, ListPage: 10, DetailPage: 4}
+	s := &State{Saved: saved, History: history, Now: time.Now, ListPage: 10, DetailPage: 4, Search: DefaultSearch}
 	s.reindex()
 	return s
 }

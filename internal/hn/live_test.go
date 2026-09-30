@@ -69,10 +69,44 @@ func TestLiveSearch(t *testing.T) {
 		{"rust borrow checker zebra banana", SearchAnyWord}, // no story has every word
 		{"sqlite wal mode performence", SearchAnyWord},      // typo + a word no title has
 	} {
-		items, kind, err := c.Search(ctx, tc.q)
+		items, kind, err := c.Search(ctx, tc.q, SearchOptions{})
 		if err != nil || kind != tc.kind || len(items) == 0 {
 			t.Fatalf("%q: %d items, kind %v, err %v", tc.q, len(items), kind, err)
 		}
 		t.Logf("%q (kind %d): %q", tc.q, kind, items[0].Title)
+	}
+}
+
+func TestLiveSearchFilters(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	c := NewClient()
+	yearAgo := time.Now().Add(-365 * 24 * time.Hour).Unix()
+	for name, tc := range map[string]struct {
+		q   string
+		opt SearchOptions
+	}{
+		"rust, stories by date, past year":           {"rust", SearchOptions{ByDate: true, Since: yearAgo}},
+		"kubernets (typo), by date, all time":        {"kubernets", SearchOptions{ByDate: true}},
+		"no words, Show HN by popularity, past year": {"", SearchOptions{Tag: "show_hn", Since: yearAgo}},
+		"no words, jobs by date":                     {"", SearchOptions{Tag: "job", ByDate: true}},
+	} {
+		items, kind, err := c.Search(ctx, tc.q, tc.opt)
+		if err != nil || len(items) == 0 {
+			t.Fatalf("%s: %d items, err %v", name, len(items), err)
+		}
+		for i := 1; tc.opt.ByDate && i < len(items); i++ {
+			if items[i].Time > items[i-1].Time {
+				t.Errorf("%s: not newest first at %d", name, i)
+				break
+			}
+		}
+		for _, it := range items {
+			if tc.opt.Since > 0 && it.Time <= tc.opt.Since {
+				t.Errorf("%s: %q is older than the range", name, it.Title)
+				break
+			}
+		}
+		t.Logf("%s (kind %d): %q", name, kind, items[0].Title)
 	}
 }

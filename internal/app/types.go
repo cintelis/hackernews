@@ -87,10 +87,13 @@ const (
 	CmdHelp
 	CmdTheme
 	CmdQuit
-	CmdSearch     // open search and start typing
-	CmdDeleteChar // backspace in the search box
-	CmdClearInput // empty the search box
-	CmdSortNewest // switch a thread between ranked and newest-first
+	CmdSearch      // open search and start typing
+	CmdDeleteChar  // backspace in the search box
+	CmdClearInput  // empty the search box
+	CmdSortNewest  // switch a thread between ranked and newest-first
+	CmdSearchType  // cycle the search filters: type,
+	CmdSearchOrder // order,
+	CmdSearchRange // and time range
 )
 
 // Action is anything Update accepts: a Command or one of the result types below.
@@ -160,7 +163,8 @@ type (
 	SaveHistory struct{ Entries []store.Entry }
 	Quit        struct{}
 	RunSearch   struct {
-		Gen   int
-		Query string
+		Gen     int
+		Query   string
+		Options hn.SearchOptions
 	}
 )

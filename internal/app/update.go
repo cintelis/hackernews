@@ -200,6 +200,11 @@ func (s *State) listCommand(c Command) []Effect {
 			return s.switchCategory(s.prevCategory)
 		}
 		return nil
+	case CmdSearchType, CmdSearchOrder, CmdSearchRange:
+		if s.Category == CatSearch {
+			return s.cycleSearchFilter(c)
+		}
+		return nil
 	case CmdClearHistory:
 		if s.Category != CatHistory {
 			return nil
@@ -331,7 +336,7 @@ func (s *State) loadList(purge bool) []Effect {
 	case CatHistory:
 		s.List.IDs = entryIDs(s.History)
 	case CatSearch:
-		s.Search.Shown = ""
+		s.Search.Shown, s.Search.asked = "", "" // a reload always asks again
 		return s.searchChanged()
 	default:
 		s.List.Loading = true
@@ -495,9 +500,11 @@ func (s *State) searchCommand(c Command) []Effect {
 	switch c {
 	case CmdBack:
 		s.Search.Editing = false
-		if strings.TrimSpace(s.Search.Query) == "" { // nothing searched: leave the tab
+		if strings.TrimSpace(s.Search.Query) == "" && !s.Search.Filtered() { // nothing searched: leave the tab
 			return s.switchCategory(s.prevCategory)
 		}
+	case CmdSearchType, CmdSearchOrder, CmdSearchRange:
+		return s.cycleSearchFilter(c)
 	case CmdOpen, CmdDown: // into the results
 		s.Search.Editing = false
 	case CmdDeleteChar:
@@ -516,15 +523,17 @@ func (s *State) searchCommand(c Command) []Effect {
 // results stay listed until the new ones arrive, so typing doesn't flicker.
 func (s *State) searchChanged() []Effect {
 	q := strings.TrimSpace(s.Search.Query)
-	if q == s.Search.Shown && q != "" && !s.List.Loading {
+	key := s.Search.key(q)
+	if key == s.Search.asked {
 		return nil // only whitespace changed
 	}
+	s.Search.asked = key
 	s.List.gen = s.gen()
-	if q == "" {
+	if q == "" && !s.Search.Filtered() {
 		s.List = List{gen: s.List.gen}
 		s.Search.Shown = ""
 		return nil
 	}
 	s.List.Loading, s.List.Err = true, nil
-	return []Effect{RunSearch{Gen: s.List.gen, Query: q}}
+	return []Effect{RunSearch{Gen: s.List.gen, Query: q, Options: s.Search.options(s.Now())}}
 }

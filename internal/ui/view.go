@@ -215,14 +215,14 @@ func (m *Model) searchBody(t Theme, h int) []string {
 	if q.Query == "" {
 		box = append(box, seg{"search Hacker News…", t.TextDim, false})
 	}
-	out := []string{line(w, boxBg, box...), line(w, t.Body, m.searchInfo(t)...), line(w, t.Body)}
+	out := []string{line(w, boxBg, box...), m.searchFilters(t), line(w, t.Body, m.searchInfo(t)...), line(w, t.Body)}
 	rest := max(1, h-len(out))
 
 	switch {
-	case strings.TrimSpace(q.Query) == "":
+	case strings.TrimSpace(q.Query) == "" && !q.Filtered():
 		return append(out, m.message(t, rest, "Search every story on Hacker News",
 			"Typos are fine. If no story has all your words, the closest ones are shown.",
-			"type, then ⏎ or ↓ to browse the results")...)
+			"type, then ⏎ or ↓ to browse · change a filter to browse without words")...)
 	case len(l.Items) > 0:
 		return append(out, m.storyRows(t, rest)...)
 	case l.Loading:
@@ -234,11 +234,33 @@ func (m *Model) searchBody(t Theme, h int) []string {
 		"Nothing on Hacker News matches, and no story loaded here comes close.", "try other words")...)
 }
 
+// searchFilters reads like hn.algolia.com's: "Search Stories by Date for
+// Past year", with any filter changed from its default highlighted.
+func (m *Model) searchFilters(t Theme) string {
+	q, d := m.s.Search, app.DefaultSearch
+	val := func(label string, changed bool) seg {
+		if changed {
+			return seg{label, t.Accent, true}
+		}
+		return seg{label, t.Text, true}
+	}
+	left := []seg{
+		{" Search ", t.TextDim, false}, val(q.Type.Label(), q.Type != d.Type),
+		{" by ", t.TextDim, false}, val(q.Order.Label(), q.Order != d.Order),
+		{" for ", t.TextDim, false}, val(q.Range.Label(), q.Range != d.Range),
+	}
+	right := []seg{{"ctrl+t type · ctrl+o order · ctrl+r range ", t.TextDim, false}}
+	return split(m.width, t.Body, left, right)
+}
+
 func (m *Model) searchInfo(t Theme) []seg {
 	q := m.s.Search
 	n := len(m.s.List.Items)
-	if q.Shown == "" || n == 0 {
+	if n == 0 || m.s.List.Loading && q.Shown == "" {
 		return nil
+	}
+	if q.Shown == "" { // browsing with filters, no words
+		return []seg{{" " + plural(n, "result"), t.TextMuted, false}}
 	}
 	switch q.Kind {
 	case hn.SearchAnyWord:

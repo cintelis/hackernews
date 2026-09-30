@@ -154,3 +154,20 @@ func TestRenderNewestFirst(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderSearchFilters(t *testing.T) {
+	m := newModel(t, 100, 24)
+	m.s.Start()
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	out := ansi.Strip(checkFrame(t, m))
+	if !strings.Contains(out, "Search Stories by Date for Past year") || !strings.Contains(out, "ctrl+r range") {
+		t.Fatalf("filter line missing:\n%s", out)
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	m.Update(app.SearchLoaded{Gen: m.s.ListGenForTest(), Items: []hn.Item{{ID: 1, Title: "Show HN: x"}}})
+	out = ansi.Strip(checkFrame(t, m))
+	if !strings.Contains(out, "Search Show HN by Date") || !strings.Contains(out, "1 result") || !strings.Contains(out, "Show HN: x") {
+		t.Fatalf("browse frame:\n%s", out)
+	}
+}
