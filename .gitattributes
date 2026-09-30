@@ -1,0 +1,4 @@
+# LF everywhere: install.sh must stay runnable by sh, and nothing here needs CRLF
+* text=auto eol=lf
+# signed test fixtures must stay byte-for-byte what ssh-keygen signed
+internal/update/testdata/** -text
